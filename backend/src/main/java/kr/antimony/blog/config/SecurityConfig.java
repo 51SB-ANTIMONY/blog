@@ -2,6 +2,7 @@ package kr.antimony.blog.config;
 
 import kr.antimony.blog.config.oauth.AccountsOidcUserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -26,8 +27,11 @@ public class SecurityConfig {
     private final AccountsOidcUserService accountsOidcUserService;
     private final ClientRegistrationRepository clientRegistrationRepository;
 
+    // H2 콘솔은 보안 검사에서 뺀다. 콘솔이 켜져 있을 때(로컬)만 등록한다.
+    // toH2Console()은 H2 콘솔 설정이 있어야 동작하므로, 콘솔을 끈 운영·테스트에서 등록하면 서버가 켜지지 않는다.
     @Bean
-    public WebSecurityCustomizer configure() {
+    @ConditionalOnBooleanProperty("spring.h2.console.enabled")
+    public WebSecurityCustomizer h2ConsoleSecurityCustomizer() {
         return (web) -> web.ignoring()
                 .requestMatchers(toH2Console());
     }

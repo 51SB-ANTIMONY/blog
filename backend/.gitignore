@@ -40,4 +40,5 @@ bin/
 .DS_Store
 
 ### Local config ###
-src/main/resources/application.yml
+# 로컬 비밀 값 (실행 위치인 backend/ 폴더에 둔다. JAR에 들어가지 않는다)
+/application-local.yml

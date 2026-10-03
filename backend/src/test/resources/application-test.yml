@@ -1,0 +1,4 @@
+# 테스트 설정. build.gradle이 테스트할 때 test 프로필을 켠다.
+# 비밀 값은 테스트 전용 가짜 값이다. (실제 accounts와 통신하지 않는다)
+accounts:
+  client-secret: test-blog-client-secret

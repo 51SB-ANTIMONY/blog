@@ -39,4 +39,6 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // 테스트는 test 프로필(src/test/resources/application-test.yml)로 실행한다. 로컬 비밀 값 파일에 기대지 않는다.
+    systemProperty 'spring.profiles.active', 'test'
 }

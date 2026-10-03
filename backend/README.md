@@ -74,8 +74,8 @@ src/main/java/kr/antimony/blog
 └── exception/                           # API 예외, 공통 에러 응답, GlobalExceptionHandler
 
 src/main/resources
-├── application.yml                      # Git 제외 (application.yml.example 참고)
-├── application.yml.example              # 설정 예시
+├── application.yml                      # 공통 설정 (주소·비밀 값은 환경 변수)
+├── application-prod.yml                 # 운영 설정
 └── import.sql                           # 초기 데이터 (예시 작성자, 예시 글)
 ```
 
@@ -324,7 +324,7 @@ PUT /api/articles/{id}
 - [accounts](https://github.com/51SB-ANTIMONY/accounts) 실행 (backend `localhost:9000`, frontend `localhost:3001`). blog는 accounts 없이도 켜지지만, 로그인하려면 필요합니다.
 
 ### 설정 파일
-`src/main/resources/application.yml`은 비밀 값이 들어 있어 Git에서 제외되어 있습니다. 같은 폴더의 `application.yml.example`을 복사해서 만들어 주세요.
+설정은 `application.yml`(공통), `application-prod.yml`(운영, 값은 환경 변수), 테스트용 `src/test/resources/application-test.yml`로 나뉩니다. 로컬 비밀 값은 Git에서 제외한 `backend/application-local.yml`에 둡니다. 같은 폴더의 `application-local.yml.example`을 복사해서 만들어 주세요. 프로필을 지정하지 않으면 `local` 프로필로 실행됩니다.
 - `accounts.client-secret`: accounts 설정의 `accounts.clients.blog.client-secret`과 같은 값
 
 ### 실행
@@ -362,8 +362,8 @@ accounts를 켜지 않아도 됩니다. 로그인한 상태는 `spring-security-
 | `ACCOUNTS_ISSUER` | accounts 주소 (예: `https://accounts.antimony.kr`) |
 | `ACCOUNTS_BACKCHANNEL_URI` | blog 서버가 accounts를 직접 부르는 주소 (없으면 issuer) |
 | `ACCOUNTS_CLIENT_SECRET` | accounts에 등록한 blog의 Client Secret |
-| `SPRING_DATASOURCE_URL` | RDS 접속 주소 |
-| `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | RDS 계정 |
+| `DB_URL` | DB 접속 주소 (5-2에서 MySQL) |
+| `DB_USERNAME`, `DB_PASSWORD` | DB 계정 |
 
 ## 배포 (예정)
 | 구성 요소 | 역할 |
