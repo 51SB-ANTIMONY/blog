@@ -1,6 +1,6 @@
 # Blog Backend
 
-블로그 서비스의 백엔드 서버입니다. Spring Boot로 만든 REST API와, 동작 확인용 임시 화면(Thymeleaf)을 함께 제공합니다.
+블로그 서비스의 백엔드 서버입니다. Spring Boot로 만든 REST API를 제공하고, 화면은 [blog frontend](../frontend)(Next.js)가 그립니다.
 로그인은 antimony.kr 통합 로그인 서버인 **[accounts](../accounts)에 맡깁니다(OpenID Connect).** blog는 accounts에 등록된 OIDC 클라이언트이고, accounts에서 로그인하고 돌아오면 **세션**(`BLOG_SESSION` 쿠키)으로 로그인 상태를 기억합니다. 토큰은 브라우저에 두지 않습니다.
 프로젝트 전체 소개는 [루트 README](../README.md)를 참고해 주세요.
 
@@ -25,13 +25,13 @@
 | 구분 | 기술 | 용도 | 상태 |
 |---|---|---|---|
 | Language | Java 25 | | 사용 중 |
-| Framework | Spring Boot 4.0.1, Spring Web MVC | REST API, 화면 컨트롤러 | 사용 중 |
+| Framework | Spring Boot 4.0.1, Spring Web MVC | REST API | 사용 중 |
 | ORM | Spring Data JPA, Hibernate | 엔티티 매핑, 리포지토리, JPA Auditing(작성/수정 시각) | 사용 중 |
 | Database | H2 (인메모리) | 로컬 실행, 테스트 | 사용 중 |
 | 보안 | Spring Security 7.0 | 필터 체인, 인가 규칙 | 사용 중 |
 | 인증 | Spring Security OAuth2 Client | accounts(OIDC 인가 서버)로 로그인 (권한 부여 코드 방식 + PKCE), ID 토큰 검증 | 사용 중 |
 | 인증 | 세션, CSRF 토큰 | 로그인 상태 유지 (`BLOG_SESSION`), 쿠키 기반 요청 보호 (`XSRF-TOKEN`) | 사용 중 |
-| View | Thymeleaf, Bootstrap, Vanilla JS | 동작 확인용 임시 화면 | 사용 중 (별도 프론트엔드로 교체 예정) |
+| View | Next.js ([`../frontend`](../frontend)) | 화면. 이 서버 앞에서 요청을 넘겨준다(rewrites) | 사용 중 (Thymeleaf 임시 화면은 삭제) |
 | Test | JUnit 5, AssertJ, MockMvc, Spring Security Test | 단위, 통합 테스트 | 사용 중 |
 | 기타 | Lombok | 반복 코드 생성 | 사용 중 |
 | Database | Amazon RDS | 운영 DB | 예정 |
@@ -41,23 +41,18 @@
 
 ## 아키텍처
 ```
-                 ┌────── accounts (OIDC 인가 서버) ──────┐
-                 │ localhost:3001  화면 (Next.js)        │ ← 브라우저가 가는 주소 (issuer)
-                 │ localhost:9000  Spring                │ ← blog 서버가 직접 부르는 주소
-                 └──▲──────────────────────────────▲─────┘
-       ② 로그인 화면  │                              │ ④ code → 토큰 교환 (Client Secret + PKCE)
-          (accounts  │                              │    서명 공개 키 조회
-          세션이 있으면 생략)                         │    (서버 ↔ 서버)
-브라우저 ── ① 로그인 필요 ──┼───▶ ┌────────────────────┴─────────── blog (Spring Boot, 8080) ─┐
-  │                       │     │ Security Filter Chain                                     │
-  │ ③ code를 들고 돌아옴 ───┼────▶│   OAuth2 Login Filters (accounts 로그인, ID 토큰 검증)      │
-  │                       │     │   CsrfFilter, AuthorizationFilter                         │
-  │ ⑤ Set-Cookie:         │     │        ▼                                                  │
-  │   BLOG_SESSION        │     │ Controller → Service → Repository ──▶ H2 (예정: RDS)      │
-  │◀──────────────────────┼─────│ (View: Thymeleaf)                                         │
-  │ 이후 요청: 세션 쿠키 + X-XSRF-TOKEN                                                     │
-  └─────────────────────────────▶└───────────────────────────────────────────────────────────┘
+브라우저 ── localhost:3000  blog frontend (Next.js)       화면 (목록·상세는 서버에서 그림)
+              │ rewrites: /api/**, /oauth2/**, /login/oauth2/**, /logout
+              ▼
+           localhost:8080  blog backend (이 서버)           API, 로그인 처리, 세션(BLOG_SESSION), CSRF
+              │ ① 로그인 필요 → accounts로 (브라우저가 이동)
+              │ ② code → 토큰 교환, 서명 공개 키 (서버 ↔ 서버)
+              ▼
+           accounts  localhost:3001 (화면, issuer) / localhost:9000 (Spring)
 ```
+- 브라우저는 3000만 봅니다. Next.js가 위 경로를 이 서버로 넘기므로 화면과 API가 같은 주소이고, 세션 쿠키와 CSRF 쿠키를 그대로 씁니다.
+- `server.forward-headers-strategy: framework`로 Next.js가 붙이는 `X-Forwarded-Host`를 읽어, redirect_uri와 리다이렉트 주소를 3000 기준으로 만듭니다.
+- 토큰은 이 서버의 세션에만 있고, 브라우저에는 `HttpOnly` 세션 쿠키만 갑니다(BFF).
 
 ## 프로젝트 구조
 ```
@@ -70,20 +65,18 @@ src/main/java/kr/antimony/blog
 │       └── AccountsOidcUserService.java # 로그인 후 ID 토큰의 sub로 blog 회원을 찾거나 만듦
 ├── controller/
 │   ├── BlogApiController.java           # 글 REST API
-│   ├── CsrfApiController.java           # CSRF 토큰 발급
-│   └── BlogViewController.java          # 글 화면 (Thymeleaf), / → /articles
+│   ├── MeApiController.java             # 로그인 상태 (닉네임)
+│   └── CsrfApiController.java           # CSRF 토큰 발급
 ├── service/                             # BlogService, UserService
 ├── repository/                          # BlogRepository, UserRepository
-├── domain/                              # Article, User
+├── domain/                              # Article, Category, User
 ├── dto/                                 # 요청/응답 DTO
 └── exception/                           # API 예외, 공통 에러 응답, GlobalExceptionHandler
 
 src/main/resources
 ├── application.yml                      # Git 제외 (application.yml.example 참고)
 ├── application.yml.example              # 설정 예시
-├── import.sql                           # 초기 데이터 (예시 작성자, 예시 글)
-├── templates/                           # articleList, article, newArticle
-└── static/js/article.js                 # API 호출 (CSRF 헤더, 401이면 accounts 로그인으로 이동)
+└── import.sql                           # 초기 데이터 (예시 작성자, 예시 글)
 ```
 
 ## ERD
@@ -97,6 +90,8 @@ article
 ├── id          BIGINT    PK, 자동 증가
 ├── title       VARCHAR   NOT NULL
 ├── content     VARCHAR   NOT NULL
+├── category    VARCHAR   NOT NULL   ← DAILY(일상), STUDY(학습), TREE(시냇가에 심은 나무)
+├── summary     VARCHAR   (300자 이하, 선택)   ← 비우면 목록에 본문 앞부분
 ├── author_id   BIGINT    NOT NULL, FK → users.id
 ├── created_at  TIMESTAMP            (JPA Auditing)
 └── updated_at  TIMESTAMP            (JPA Auditing)
@@ -110,10 +105,11 @@ article
 | 메서드 | URL | 설명 | 인증 | 성공 응답 |
 |---|---|---|---|---|
 | `POST` | `/api/articles` | 글 작성. 작성자는 로그인 사용자 | 필요 | 201 Created, 글 |
-| `GET` | `/api/articles` | 글 목록 조회 (최신순) | 필요 | 200 OK, 글 배열 |
-| `GET` | `/api/articles/{id}` | 글 상세 조회 | 필요 | 200 OK, 글 |
+| `GET` | `/api/articles?category=` | 글 목록 조회 (최신순). `category`(DAILY, STUDY, TREE)로 거를 수 있음 | 불필요 | 200 OK, 글 배열 |
+| `GET` | `/api/articles/{id}` | 글 상세 조회 | 불필요 | 200 OK, 글 |
 | `PUT` | `/api/articles/{id}` | 글 수정. **작성자만** | 필요 | 200 OK, 글 |
 | `DELETE` | `/api/articles/{id}` | 글 삭제. **작성자만** | 필요 | 204 No Content |
+| `GET` | `/api/me` | 로그인 상태. `{nickname}` | 필요 (안 했으면 401) | 200 OK |
 | `GET` | `/api/csrf` | CSRF 토큰 발급 (`XSRF-TOKEN` 쿠키) | 불필요 | 200 OK, `{token, headerName, parameterName}` |
 
 **글 응답 형식** (작성, 조회, 수정 모두 같음)
@@ -122,17 +118,25 @@ article
   "id": 4,
   "title": "제목",
   "content": "내용",
+  "category": "STUDY",
+  "summary": null,
+  "excerpt": "내용",
   "author": "닉네임",
+  "editable": true,
   "createdAt": "2026-10-03T14:30:00.123456",
   "updatedAt": "2026-10-03T14:30:00.123456"
 }
 ```
+- `summary`: 작성자가 쓴 요약(없으면 `null`). `excerpt`: 목록에 보일 요약(요약이 없으면 본문 앞 120자).
+- `editable`: 로그인한 사용자가 작성자인가. 화면이 수정·삭제 버튼을 보여 줄지 정하는 값이고, 실제 권한 검사는 서버가 다시 한다.
 
 **입력값 규칙** (작성, 수정)
 | 필드 | 규칙 |
 |---|---|
 | `title` | 필수, 공백만은 안 됨, 255자 이하 |
 | `content` | 필수, 공백만은 안 됨 |
+| `category` | 필수. `DAILY`, `STUDY`, `TREE` |
+| `summary` | 선택, 300자 이하 |
 
 ### 에러 응답
 모든 REST API의 에러는 같은 형식으로 응답합니다.
@@ -164,30 +168,24 @@ Cookie: BLOG_SESSION=...; XSRF-TOKEN=6f2b...
 X-XSRF-TOKEN: 6f2b...
 Content-Type: application/json
 
-{"title": "제목", "content": "내용"}
+{"title": "제목", "content": "내용", "category": "STUDY", "summary": ""}
 ```
 ```http
 HTTP/1.1 201 
 Content-Type: application/json
 
-{"id": 4, "title": "제목", "content": "내용", "author": "닉네임", "createdAt": "2026-10-03T14:30:00.123456", "updatedAt": "2026-10-03T14:30:00.123456"}
+{"id": 4, "title": "제목", "content": "내용", "category": "STUDY", "summary": null, "excerpt": "내용", "author": "닉네임", "editable": true, "createdAt": "2026-10-03T14:30:00.123456", "updatedAt": "2026-10-03T14:30:00.123456"}
 ```
 
 ### 로그인, 로그아웃 (Spring Security 제공)
 | 메서드 | URL | 설명 |
 |---|---|---|
 | `GET` | `/oauth2/authorization/accounts` | 로그인 시작. accounts의 `/oauth2/authorize`로 302 (`state`, `nonce`, PKCE 포함) |
-| `GET` | `/login/oauth2/code/accounts` | accounts가 code를 보내는 리디렉션 URI. 토큰 교환, ID 토큰 검증, 회원 저장 후 원래 화면(없으면 `/articles`)으로 302 |
-| `POST` | `/logout` | blog 세션 삭제 후 accounts의 `/connect/logout`으로 302. accounts 로그인도 끝나고 `http://localhost:8080/`로 돌아옴 |
+| `GET` | `/login/oauth2/code/accounts` | accounts가 code를 보내는 리디렉션 URI(`http://localhost:3000/...`). 토큰 교환, ID 토큰 검증, 회원 저장 후 화면의 첫 페이지(`/`)로 302 |
+| `POST` | `/logout` | blog 세션 삭제 후 accounts의 `/connect/logout`으로 302. accounts 로그인도 끝나고 `http://localhost:3000/`으로 돌아옴 |
 
-### 화면 (Thymeleaf, 임시)
-| URL | 화면 | 비고 |
-|---|---|---|
-| `GET /` | | `/articles`로 302 |
-| `GET /articles` | `articleList.html` | 글 목록. 로그인 전에는 로그인 버튼, 후에는 닉네임과 로그아웃 버튼 |
-| `GET /articles/{id}` | `article.html` | 글 상세. 작성자 닉네임, 작성 시각 표시 |
-| `GET /new-article` | `newArticle.html` | 새 글 작성. **로그인 필요** (안 했으면 accounts 로그인으로) |
-| `GET /new-article?id={id}` | `newArticle.html` | 기존 글 수정. **로그인 필요** |
+### 화면
+화면은 [blog frontend](../frontend)가 그립니다. 홈(`/`, `/?category=daily`), 글 상세(`/articles/{id}`), 글 쓰기(`/write`), 글 수정(`/articles/{id}/edit`).
 
 ## 인증과 인가 설계
 
@@ -198,8 +196,8 @@ Content-Type: application/json
 | 로그인 후 | `AccountsOidcUserService`가 `sub`로 회원 저장, 닉네임 갱신 | blog 회원과 accounts 회원 연결 |
 | 세션 | 기본값 (필요할 때 생성), 쿠키 이름 `BLOG_SESSION` | 같은 localhost의 accounts 세션 쿠키(`ACCOUNTS_SESSION`)와 구별 |
 | CSRF | `csrf.spa()`: `XSRF-TOKEN` 쿠키 → `X-XSRF-TOKEN` 헤더 또는 `_csrf` 폼 값 | 세션 쿠키는 브라우저가 자동으로 보내므로 다른 사이트가 보낸 요청을 막아야 함 |
-| 인가 규칙 | `/api/csrf` 허용 → `/new-article`, `/api/**` 인증 필요 → 나머지 허용 | 글 쓰기와 API만 보호 |
-| 인증 실패 | `/api/**`는 `401`, 화면은 accounts 로그인으로 302 | API 클라이언트에는 리다이렉트 대신 상태 코드 |
+| 인가 규칙 | `/api/csrf`, 글 읽기(`GET /api/articles`, `GET /api/articles/*`) 허용 → 나머지 `/api/**` 인증 필요 | 읽기는 누구나, 쓰기·수정·삭제는 로그인 |
+| 인증 실패 | `/api/**`는 `401` | 화면(Next.js)이 401을 받으면 accounts 로그인으로 보낸다 |
 | 로그아웃 | `OidcClientInitiatedLogoutSuccessHandler` | blog 세션과 함께 accounts 로그인도 끝냄 |
 
 ### accounts 등록 정보 (`AccountsClientConfig`)
@@ -250,42 +248,38 @@ H2 Database
 
 ### 2. 로그인 흐름 (accounts OIDC → blog 세션)
 ```
-브라우저                      blog (8080)                        accounts (3001 → 9000)
-  │ GET /new-article             │                                     │
-  │─────────────────────────────▶│ 로그인 필요 → 요청 저장(세션)         │
-  │◀── 302 /oauth2/authorization/accounts                              │
-  │─────────────────────────────▶│ state, nonce, code_verifier 생성     │
-  │                              │ → 세션에 저장                         │
-  │◀── 302 :3001/oauth2/authorize?client_id=blog&scope=openid profile email&state&nonce&code_challenge...
-  │───────────────────────────────────────────────────────────────────▶│
-  │                 accounts 로그인 (이미 로그인돼 있으면 생략 = SSO)      │
-  │◀── 302 :8080/login/oauth2/code/accounts?code=...&state=... ────────│
-  │─────────────────────────────▶│ ① state 비교                         │
-  │                              │ ② POST :9000/oauth2/token            │
-  │                              │    (code + Client Secret + code_verifier)
-  │                              │────────────────────────────────────▶│
-  │                              │◀── id_token, access_token ──────────│
-  │                              │ ③ ID 토큰 검증 (서명, iss, aud, nonce)│
-  │                              │ ④ AccountsOidcUserService            │
-  │                              │    sub로 회원 찾기/만들기, 닉네임 갱신 │
-  │                              │ ⑤ 세션에 로그인 정보 저장              │
-  │◀── 302 /new-article?continue, Set-Cookie: BLOG_SESSION ─────────────│
+브라우저              blog frontend (3000)        blog backend (8080)            accounts (3001 → 9000)
+  │ 글쓰기 클릭 (/write)    │                          │                              │
+  │──────────────────────▶│ /api/me → 401 (로그인 안 됨)                              │
+  │ 돌아올 화면(/write)을 sessionStorage에 저장                                        │
+  │ GET /oauth2/authorization/accounts ──(rewrites)──▶│ state, nonce, code_verifier 생성 → 세션
+  │◀── 302 :3001/oauth2/authorize?client_id=blog&redirect_uri=http://localhost:3000/login/oauth2/code/accounts...
+  │─────────────────────────────────────────────────────────────────────────────────▶│
+  │                        accounts 로그인 (이미 로그인돼 있으면 생략 = SSO)              │
+  │◀── 302 :3000/login/oauth2/code/accounts?code=...&state=... ─────────────────────│
+  │──────────────────────▶│──(rewrites)─────────────▶│ ① state 비교                  │
+  │                       │                          │ ② POST :9000/oauth2/token ───▶│
+  │                       │                          │◀── id_token, access_token ────│
+  │                       │                          │ ③ ID 토큰 검증 ④ 회원 저장       │
+  │◀── 302 :3000/, Set-Cookie: BLOG_SESSION ──────────│                               │
+  │ 첫 화면이 sessionStorage를 보고 /write로 이동                                        │
 ```
-①②③⑤는 Spring Security OAuth2 Client가 처리하고, ④가 직접 구현한 부분입니다.
+①②③은 Spring Security OAuth2 Client가 처리하고, ④는 `AccountsOidcUserService`입니다.
 
 ### 3. API 호출 흐름
 ```
-article.js: httpRequest('POST', '/api/articles', body)
+글 작성 (브라우저): POST /api/articles → (rewrites) → blog backend
    │ Cookie: BLOG_SESSION, XSRF-TOKEN   (브라우저가 자동으로)
-   │ X-XSRF-TOKEN: <XSRF-TOKEN 쿠키 값>  (article.js가 붙임. 쿠키가 없으면 /api/csrf로 먼저 받음)
+   │ X-XSRF-TOKEN: <XSRF-TOKEN 쿠키 값>  (화면이 붙임. 쿠키가 없으면 /api/csrf로 먼저 받음)
    ▼
 CsrfFilter: 헤더 값 == 쿠키 값?          (아니면 403)
    ▼
-세션의 로그인 정보 → AuthorizationFilter (/api/** 인증 필요, 없으면 401 → article.js가 accounts 로그인으로 이동)
+AuthorizationFilter: 로그인했나?         (아니면 401 → 화면이 accounts 로그인으로)
    ▼
-BlogApiController.addArticle(request, Principal)
-   ▼ principal.getName() = sub
 BlogService.save() → sub로 회원 조회 → article.author = 회원
+
+글 목록·상세 (Next.js 서버): GET http://localhost:8080/api/articles
+   │ Cookie: 브라우저가 보낸 쿠키를 그대로 넘김 → 로그인했으면 editable이 정확히 나옴
 ```
 
 ### 4. 글 수정, 삭제 흐름
@@ -301,11 +295,11 @@ PUT /api/articles/{id}
 
 ### 5. 로그아웃 흐름
 ```
-글 목록의 로그아웃 버튼 → POST /logout (_csrf 포함)
+헤더의 로그아웃 버튼 → POST /logout (_csrf 포함, rewrites로 이 서버에)
   → blog 세션 삭제
-  → 302 :3001/connect/logout?id_token_hint=<ID 토큰>&post_logout_redirect_uri=http://localhost:8080/
+  → 302 :3001/connect/logout?id_token_hint=<ID 토큰>&post_logout_redirect_uri=http://localhost:3000/
   → accounts 세션, 로그인 상태 유지 쿠키 삭제
-  → 302 http://localhost:8080/ → /articles (로그인 버튼이 보임)
+  → 302 http://localhost:3000/ (로그인 버튼이 보임)
 ```
 
 ## 구현 과정
@@ -318,9 +312,10 @@ PUT /api/articles/{id}
 | 3 | `9ef1b99` | 폼 로그인 + 세션 | Spring Security, 회원가입, BCrypt, `UserDetailsService` |
 | 4 | `77e2349` | (준비) JWT | `TokenProvider`, `TokenAuthenticationFilter`, 리프레시 토큰, 재발급 API |
 | 5 | `51e8aa2` | Google OAuth2 + JWT, STATELESS | OAuth2 로그인, 로그인 성공 시 JWT 발급, 글 작성자와 작성자 확인 |
-| 6 | `06cbebc` ~ `8664d11` | **accounts OIDC + 세션** | 로그인을 accounts에 맡김. Google 로그인, JWT 코드 삭제. `sub`로 회원 연결, CSRF, 전체 로그아웃 |
+| 6 | `06cbebc` ~ `8664d11` | accounts OIDC + 세션 | 로그인을 accounts에 맡김. Google 로그인, JWT 코드 삭제. `sub`로 회원 연결, CSRF, 전체 로그아웃 |
+| 7 | `8d3636a` ~ `22ff712` | **accounts OIDC + 세션, 화면은 Next.js** | 카테고리·요약, 읽기 공개, `/api/me`, Next.js 뒤에서 동작, Thymeleaf 삭제 |
 
-6단계의 자세한 과정은 [note/16_accounts_separation/07](../note/16_accounts_separation/07_step2_blog_oidc_client.md)에 정리했습니다.
+6, 7단계의 자세한 과정은 [note/16_accounts_separation](../note/16_accounts_separation)에 정리했습니다.
 
 ## 로컬 실행 방법
 
@@ -334,9 +329,13 @@ PUT /api/articles/{id}
 
 ### 실행
 ```bash
-./gradlew bootRun
+./gradlew bootRun          # localhost:8080 (API)
+
+cd ../frontend
+npm install
+npm run dev                # localhost:3000 (화면)
 ```
-- 글 목록: `http://localhost:8080/articles` (로그인 버튼 → accounts 로그인)
+- 화면: `http://localhost:3000`
 - H2 콘솔: `http://localhost:8080/h2-console`
   - JDBC URL: `jdbc:h2:mem:testdb`
   - User Name: `sa`
@@ -350,9 +349,9 @@ accounts를 켜지 않아도 됩니다. 로그인한 상태는 `spring-security-
 
 | 테스트 클래스 | 대상 | 내용 |
 |---|---|---|
-| `AccountsLoginTest` | 로그인, 로그아웃 | 로그인이 필요한 화면 → accounts 로그인 시작, 권한 요청 주소(client_id, 범위, PKCE, nonce), 브라우저용·서버용 주소, API 401, 로그아웃 → accounts `/connect/logout`, `/` → `/articles`, 로그인 상태 표시 |
+| `AccountsLoginTest` | 로그인, 로그아웃 | 권한 요청 주소(client_id, 범위, PKCE, nonce), Next.js를 거친 요청이면 redirect_uri·로그아웃 후 주소가 3000, 브라우저용·서버용 주소, API 401, 로그아웃 → accounts `/connect/logout` |
 | `CsrfTest` | CSRF | 토큰 발급, 토큰 없으면 403, 쿠키 값을 헤더로 보내면 통과 (새 Spring 컨텍스트에서 실행) |
-| `BlogApiControllerTest` | 글 API | 작성, 목록, 상세, 수정, 삭제와 응답 형식(작성자 닉네임). 없는 글 404, 작성자가 아닌 사용자의 수정·삭제 403, 입력값 검증 400 |
+| `BlogApiControllerTest` | 글 API | 작성, 목록, 상세, 수정, 삭제와 응답 형식(작성자 닉네임, 카테고리, 요약). 로그인 없이 읽기, `editable`, 카테고리 필터, 본문으로 만든 요약, `/api/me`. 없는 글 404, 작성자가 아닌 사용자의 수정·삭제 403, 입력값 검증 400 |
 | `UserServiceTest` | 회원 연결 | 처음 로그인하면 회원 생성, 같은 `sub`면 같은 회원이고 닉네임 갱신 |
 
 ## 환경 설정 (예정)
@@ -428,6 +427,7 @@ accounts를 켜지 않아도 됩니다. 로그인한 상태는 `spring-security-
 - **해결**: 6단계에서 blog의 액세스 토큰, 리프레시 토큰, 재발급 API를 모두 없앴다. 토큰 수명은 accounts가 관리한다(액세스 30분, 리프레시 14일).
 
 ### 11. 로그인이 필요한 화면인데 테스트에서는 401
+- (Thymeleaf 화면이 있던 6단계의 기록. 7단계에서 화면을 Next.js로 옮기며 이 테스트는 지웠다.)
 - **문제**: 테스트에서 로그인하지 않고 `GET /new-article`을 보내자, accounts 로그인으로 보내는 302가 아니라 401이 응답됐다.
 - **원인**: Spring Security는 HTML을 원하는 요청(`Accept: text/html`, 브라우저가 보냄)에만 로그인 화면으로 보내는 처리기를 쓴다. MockMvc 요청에는 `Accept` 헤더가 없어서, 직접 등록한 다른 처리기(API용 401)가 쓰였다.
 - **해결**: 테스트 요청에 `.accept(MediaType.TEXT_HTML)`을 붙여 브라우저 요청과 같게 했다.
@@ -471,4 +471,5 @@ accounts를 켜지 않아도 됩니다. 로그인한 상태는 `spring-security-
 - [x] 로그인을 accounts(OIDC)로 이전
 - [ ] AWS: RDS 연결, S3 이미지 업로드, Elastic Beanstalk 배포
 - [ ] CI/CD: GitHub Actions로 테스트, 빌드, 배포 자동화
-- [ ] 별도 프론트엔드로 화면 교체
+- [x] 별도 프론트엔드(Next.js)로 화면 교체
+- [ ] 태그, 공개 범위, 임시저장, 미리보기, 사진 업로드, 댓글, 예약 게시, 검색 (화면에는 "준비 중"으로 표시)

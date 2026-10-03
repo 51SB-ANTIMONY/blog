@@ -26,7 +26,7 @@ Spring Boot 백엔드와 별도의 프론트엔드로 구성된 개인 블로그
 사용자 브라우저
    │
    ▼
-Frontend (현재: Thymeleaf 임시 화면 / 예정: 별도 프론트엔드)
+Frontend (Next.js, localhost:3000)
    │  REST API (JSON), 세션 쿠키 + CSRF 토큰
    ▼
 AWS Elastic Beanstalk ── Spring Boot 애플리케이션
@@ -42,7 +42,7 @@ GitHub ── push ──▶ GitHub Actions ── 빌드·배포 ──▶ Elas
 ## 기술 스택
 | 구분 | 기술 |
 |---|---|
-| Frontend | (임시) Thymeleaf, Bootstrap, JavaScript / (예정) 별도 프론트엔드 |
+| Frontend | Next.js 16 (App Router, TypeScript) |
 | Backend | Java 25, Spring Boot 4, Spring Data JPA, Spring Security 7, OAuth 2.0 Client (OIDC) |
 | 로그인 서버 (accounts) | Spring Authorization Server, Next.js |
 | Database | H2 (로컬, 테스트), (예정) Amazon RDS |
@@ -53,6 +53,6 @@ GitHub ── push ──▶ GitHub Actions ── 빌드·배포 ──▶ Elas
 | 폴더 | 내용 |
 |---|---|
 | [`backend/`](./backend) | Spring Boot REST API 서버. API 명세, 인증 흐름, 실행 방법은 [backend/README.md](./backend/README.md) 참고 |
-| [`frontend/`](./frontend) | 프론트엔드 (개발 예정) |
+| [`frontend/`](./frontend) | 블로그 화면 (Next.js). 홈, 글 상세, 글 쓰기·수정. 실행 방법은 [frontend/README.md](./frontend/README.md) 참고 |
 | [`accounts/`](./accounts) | antimony.kr 통합 로그인 서버 (OIDC 인가 서버 + 로그인 화면). 나중에 별도 저장소로 분리 |
 | [`note/`](./note) | 프로젝트를 만들며 공부한 내용 정리 |
