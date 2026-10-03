@@ -1,10 +1,10 @@
 ---
-title: accounts 동작 확인과 트러블슈팅 (1-3 ~ 1-5)
+title: accounts 동작 확인과 트러블슈팅 (1-3 ~ 1-7)
 date: 2026-10-03
-tags: [oidc, authorization-server, pkce, testing, troubleshooting]
+tags: [oidc, authorization-server, pkce, nextjs, testing, troubleshooting]
 ---
 
-# accounts 동작 확인과 트러블슈팅 (1-3 ~ 1-5)
+# accounts 동작 확인과 트러블슈팅 (1-3 ~ 1-7)
 
 > 구현 과정과 코드는 [accounts 인가 서버 구현 과정](./05_accounts_implementation.md)에 정리했다.
 > 이 노트는 1-3 단계를 마친 뒤 실제로 무엇을 확인했는지, 그 과정에서 어떤 문제를 만나 어떻게 해결했는지 기록한다.
@@ -76,6 +76,23 @@ create table users (
 | 로그인 화면 메시지 | 오류 코드 3가지에 맞는 문구 | 통과 |
 
 모두 25개 통과.
+
+### 1-6, 1-7에서 추가하거나 바꾼 테스트
+모두 37개가 통과한다.
+
+| 테스트 | 확인하는 것 |
+|---|---|
+| `AuthorizationServerTest` 권한 부여 코드 방식 | 아이디 로그인(`AccountUserDetails`)으로 받은 ID 토큰의 `sub`가 회원 id, `nickname`·`preferred_username`·`email`이 들어 있다. `/userinfo`도 같은 `sub` |
+| `SignupApiControllerTest` | 중복확인(`ok`·`invalid`·`taken`), 가입 신청 202 → 메일로 간 번호로 인증 201, 틀린 번호·만료·5번 실패, 재전송, 입력 규칙(아이디 4–16자 소문자·숫자, 비밀번호 영문·숫자·특수문자, 필수 약관) |
+| `AccountRecoveryApiControllerTest` | 아이디 찾기(가린 아이디), 비밀번호 찾기(토큰 → 새 비밀번호 → 새 비밀번호로 로그인), 가입 안 된 이메일도 같은 응답 |
+| `AccountSessionApiTest` | 제공자 목록, `/api/me`(로그인 전 401), 연결 해제(마지막 로그인 수단은 409), 로그인 성공·실패 리다이렉트, 로그인 상태 유지 쿠키, **로그인 전 `/api/me` 401 뒤 로그인해도 `/account`로 이동** |
+| `CsrfApiTest` | 실제 CSRF 설정: `/api/csrf`가 토큰을 응답하고 `XSRF-TOKEN` 쿠키를 설정하며, 헤더 이름은 `X-XSRF-TOKEN`. (CSRF 토큰 없이 가입하면 403인 것은 `SignupApiControllerTest`에서 확인) |
+
+> **`MutableClock`이란?**
+> 테스트용으로 만든 `Clock`이다. 서비스가 현재 시각을 `Clock`에서 읽게 해 두면, 테스트가 시각을 4분 뒤로 옮겨 "인증번호 만료"를 기다리지 않고 시험할 수 있다.
+
+> **`CapturingMailSender`란?**
+> 테스트용 메일 발송기다. 메일을 보내지 않고 보낸 번호를 기억해 두어, 테스트가 그 번호로 인증을 시험한다.
 
 ## 2. 실제 서버로 흐름 재현
 서버를 실행(`./gradlew bootRun`)하고, 브라우저가 하는 일을 `curl`로 한 단계씩 따라갔다. 쿠키는 파일에 저장해 다음 요청에 붙였다.
@@ -224,6 +241,31 @@ Google 로그인은 브라우저가 있어야 해서 직접 확인한다.
 
 Google Cloud Console에 승인된 리디렉션 URI `http://localhost:9000/login/oauth2/code/google`이 등록되어 있어야 한다.
 
+### 1-7: Next.js를 거친 전체 흐름
+Spring(`localhost:9000`)과 Next.js(`next start`, `localhost:3001`)를 함께 띄우고, **모든 요청을 3001로** 보내 확인했다.
+
+| 확인 | 결과 |
+|---|---|
+| `/login`, `/signup`, `/signup/verify`, `/find-id`, `/reset-password`, `/account` | 모두 200 |
+| `/` | 307 → `/account` |
+| 설정 문서 | `issuer: http://localhost:3001`, `authorization_endpoint: http://localhost:3001/oauth2/authorize` |
+| `GET /api/csrf` | `XSRF-TOKEN` 쿠키 |
+| 중복확인 → 가입 신청 → 로그의 인증번호로 인증 | `ok` → 202 → 201 |
+| 틀린 비밀번호로 `POST /login/password` | 302 → `http://localhost:3001/login?error=bad_credentials` |
+| 맞는 비밀번호 + 로그인 상태 유지 | `ACCOUNTS_SESSION`, `ACCOUNTS_REMEMBER_ME` 쿠키 |
+| `/api/me` | 200, `hasPassword: true`, `identities: []` |
+| 연결 안 된 Google 해제 | 400 "연결되지 않은 계정이에요." |
+| 아이디 찾기 | `e2****r1` |
+| 비밀번호 찾기 → 새 비밀번호 | 204 |
+| 로그인한 상태에서 `/oauth2/authorize` | 302 → `http://localhost:8080/login/oauth2/code/accounts?code=...&state=s1` |
+| 로그인 안 한 상태에서 `/oauth2/authorize` | 302 → `http://localhost:3001/login` |
+| `/oauth2/authorization/google` | 302 → Google, `redirect_uri=http://localhost:3001/login/oauth2/code/google` |
+| `POST /logout` | 302 → `/login?logout`, 이후 `/api/me` 401 |
+
+리다이렉트 주소가 모두 `localhost:3001`로 나오는 것은 Next.js가 붙이는 `X-Forwarded-Host`와 Spring의 `forward-headers-strategy: framework`가 맞물려 동작한다는 뜻이다.
+
+이 확인에서 "로그인 성공 뒤 `/api/me?continue`로 이동"하는 문제를 찾았다(트러블슈팅 13).
+
 ## 3. 트러블슈팅
 
 ### 1. 권한 요청이 400 `invalid_request` (`response_type`)
@@ -291,6 +333,40 @@ Google Cloud Console에 승인된 리디렉션 URI `http://localhost:9000/login/
   > **`@EntityGraph`란?**
   > Spring Data JPA 메서드에 "이 연관 엔티티는 함께 조회하라"고 지정하는 어노테이션이다. 지연 로딩으로 설정된 연관도 이 메서드에서만은 조인해서 한 번에 읽는다.
 
+### 10. Gradle 실행이 `Input/output error`로 실패하거나 끝나지 않았다
+- **문제**: WSL에서 `./gradlew test`를 실행하자 `.gradle` 폴더의 파일에서 `Input/output error`가 났다. 다시 실행했을 때는 1시간 넘게 끝나지 않았다.
+- **원인**: 프로젝트가 Windows 디스크(`/mnt/c`)에 있고, Windows의 IntelliJ도 같은 프로젝트의 `.gradle` 폴더를 쓰고 있었다. 두 프로그램이 같은 잠금 파일을 동시에 잡으려 하면서 서로 기다렸다.
+  > **잠금 파일이란?**
+  > 프로그램이 "지금 이 폴더를 쓰는 중"이라고 표시하려고 만드는 파일이다. 다른 프로그램은 이 파일이 풀릴 때까지 기다린다.
+- **해결**: WSL에서 실행할 때는 `--project-cache-dir`로 프로젝트 캐시를 다른 폴더에 두고, `timeout`으로 최대 실행 시간을 걸었다.
+
+### 11. 테스트 하나만 `X-CSRF-TOKEN`을 받았다
+- **문제**: CSRF 설정이 `X-XSRF-TOKEN` 헤더인지 확인하는 테스트가, 다른 테스트와 함께 실행하면 `X-CSRF-TOKEN`을 받아 실패했다.
+- **원인**: `spring-security-test`의 `.with(csrf())`는 테스트용 CSRF 저장소로 **바꿔 끼운다**. 테스트 클래스들은 같은 Spring 컨텍스트를 함께 쓰므로, 앞에서 `.with(csrf())`를 쓴 테스트의 영향이 남아 있었다.
+- **해결**: 실제 CSRF 설정을 확인하는 테스트를 `CsrfApiTest`로 따로 떼고, 그 안에서는 `.with(csrf())`를 쓰지 않았다. 실제 서버에서도 `curl`로 `XSRF-TOKEN` 쿠키와 `X-XSRF-TOKEN` 헤더를 확인했다.
+
+### 12. ID 토큰의 `aud`가 배열이 아니라 문자열
+- **문제**: `aud`를 배열로 읽는 테스트가 실패했다.
+- **원인**: JWT 규칙상 `aud`는 값이 하나면 문자열, 여럿이면 배열로 쓸 수 있다. Spring Authorization Server는 앱이 하나면 문자열 `"blog"`로 쓴다.
+- **해결**: 테스트가 문자열과 배열 모두 받아들이게 했다. blog 쪽 OIDC 라이브러리도 두 형식을 모두 처리한다.
+
+### 13. 로그인에 성공했는데 JSON 화면(`/api/me?continue`)으로 이동
+- **문제**: Next.js를 거친 확인에서, 로그인에 성공하자 `/account`가 아니라 `http://localhost:3001/api/me?continue`로 리다이렉트됐다.
+- **원인**: 로그인 전에 `/api/me`를 불러 401을 받았는데, 이때 Spring Security의 `ExceptionTranslationFilter`가 이 요청을 "로그인 후 돌아갈 곳"으로 세션에 저장했다. 로그인 성공 처리기(`SavedRequestAwareAuthenticationSuccessHandler`)는 저장된 요청이 있으면 `defaultSuccessUrl`보다 그것을 먼저 쓴다. `?continue`는 저장된 요청으로 돌아왔다는 표시다. 내 계정 화면은 처음에 항상 `/api/me`를 부르므로 실제 사용 중에 반드시 일어나는 문제였다.
+  > **`RequestCache`란?**
+  > 로그인이 필요해서 막힌 요청을 기억해 두는 곳이다. 기본 구현 `HttpSessionRequestCache`는 세션에 저장한다.
+- **해결**: `HttpSessionRequestCache`에 `/api/**`가 아닌 요청만 저장하는 조건을 걸었다. `/oauth2/authorize`처럼 돌아가야 하는 요청은 여전히 저장된다. 같은 상황을 재현하는 테스트(`loginDoesNotReturnToApi`)를 추가했다.
+  ```java
+  HttpSessionRequestCache requestCache = new HttpSessionRequestCache();
+  requestCache.setRequestMatcher(new NegatedRequestMatcher(
+          PathPatternRequestMatcher.withDefaults().matcher("/api/**")));
+  ```
+
+### 14. ESLint: `window.location.href`에 값을 넣을 수 없다
+- **문제**: 소셜 로그인 버튼에서 `window.location.href = "/oauth2/authorization/google"`로 이동하는 코드가 `react-hooks/immutability` 오류, `@next/next/no-location-assign-relative-destination` 경고를 받았다.
+- **원인**: React 규칙은 컴포넌트 밖에서 만든 값(여기서는 `window.location`)을 직접 바꾸는 코드를 막는다. Next.js 규칙은 내부 화면으로 이동할 때 `router.push()`를 쓰라고 권한다. 하지만 이 주소는 Next.js 화면이 아니라 Spring이 처리하는 주소라서 화면 전체를 새로 불러와야 한다.
+- **해결**: `navigateToServer(path)` 함수를 만들어 `window.location.assign(전체 주소)`로 이동한다. Next.js 화면(`/login`)으로 가는 곳은 `router.replace()`를 쓴다.
+
 ## 4. 정리
 | 확인한 것 | 결과 |
 |---|---|
@@ -300,4 +376,7 @@ Google Cloud Console에 승인된 리디렉션 URI `http://localhost:9000/login/
 | 코드 → 토큰 교환, Client Secret 검사 | 정상. RS256, `aud=blog` |
 | 리프레시 토큰 교체, 코드 재사용 시 무효화 | 정상 |
 | `/userinfo` | 정상 (`sub`만) |
-| 남은 것 | `sub` 통일과 클레임 추가(1-6), Google 로그인 브라우저 확인, 서명 키·저장소 영속화 |
+| `sub` 통일, `nickname`·`email` 클레임 (1-6) | 정상. 로그인 방식과 상관없이 회원 id |
+| 이메일 인증 가입, 아이디·비밀번호 찾기, 내 계정 API (1-7) | 정상 (자동 테스트 37개) |
+| Next.js를 거친 전체 흐름 (1-7) | 정상. 리다이렉트·issuer 모두 `localhost:3001` |
+| 남은 것 | 브라우저로 Google 로그인·연결 확인(리디렉션 URI를 3001로 추가 필요), blog를 OIDC 앱으로 바꾸기(2단계), 서명 키·저장소 영속화 |

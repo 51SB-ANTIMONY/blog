@@ -1,10 +1,10 @@
 ---
-title: accounts 인가 서버 구현 과정 (1-1 ~ 1-5)
+title: accounts 인가 서버 구현 과정 (1-1 ~ 1-7)
 date: 2026-10-03
-tags: [oidc, authorization-server, spring-security, implementation]
+tags: [oidc, authorization-server, spring-security, nextjs, implementation]
 ---
 
-# accounts 인가 서버 구현 과정 (1-1 ~ 1-5)
+# accounts 인가 서버 구현 과정 (1-1 ~ 1-7)
 
 > 개념은 [인가 서버와 Spring Authorization Server](./04_spring_authorization_server.md), 설계는 [antimony.kr 통합 로그인 설계](./02_antimony_accounts_design.md)에 정리했다.
 > 이 노트는 실제로 만든 과정과 코드를 정리한다. 동작 확인 결과와 겪은 문제는 [accounts 동작 확인과 트러블슈팅](./06_accounts_verification_and_troubleshooting.md)에 있다.
@@ -23,6 +23,10 @@ blog 서버에 있던 로그인 코드를 accounts로 옮긴 뒤, 그것을 표�
 | 1-3 | `cde278b` | 토큰 처리를 Spring Authorization Server로 교체 |
 | 1-4 | `d226214` | 아이디·비밀번호 회원가입 정리 |
 | 1-5 | `6f04e27` | 소셜 계정을 이메일이 아니라 제공자의 `sub`로 연결 |
+| 1-6 | `8202648` | 토큰의 `sub`를 회원 id로 통일, `nickname`·`email` 클레임, 전체 로그아웃 |
+| 1-7 | `fd7783b` | 화면(Next.js)이 쓸 API: 이메일 인증 가입, 아이디·비밀번호 찾기, 내 계정, 로그인 상태 유지 |
+| 1-7 | `dac7fb9` | 로그인 뒤 API 주소로 이동하던 문제 수정 |
+| 1-7 | `39c94ec` | Next.js 화면 (`accounts/frontend`) |
 
 ## 2. 폴더 구조와 독립성
 ```
@@ -373,26 +377,215 @@ create table user_identities (
 ```
 메시지 대신 **코드**를 주소에 붙인 이유: 1-7의 Next.js 화면도 같은 코드를 보고 자기 문구를 고를 수 있다.
 
-## 8. 1-5 이후의 구조
-```
-accounts.antimony.kr (지금은 localhost:9000)
- │
- ├ 체인 ① AuthorizationServerConfig    /oauth2/**, /.well-known/**, /userinfo, /connect/**
- │    · 인가 서버 필터 (Spring Authorization Server)
- │    · 등록된 앱: blog (client_secret_basic, PKCE 필수)
- │    · 서명: RS256 (JWKSource), 공개 키 /oauth2/jwks
- │
- └ 체인 ② SecurityConfig                그 외
-      · 폼 로그인 (uid + 비밀번호)  → UserDetailService
-      · Google 로그인             → OAuth2UserCustomService.resolveUser()
-                                     로그인 상태면 linkSocial(), 아니면 loginWithSocial()  (user_identities)
-      · 회원가입 POST /api/signup → UserService.signup()
-      · 세션 (ACCOUNTS_SESSION), CSRF
+## 8. 1-6: 토큰의 `sub`를 회원 id로 통일
+
+### 왜 바꿨나
+1-5까지는 ID 토큰의 `sub`가 로그인 방식에 따라 달랐다. 아이디로 로그인하면 `uid`(`tester01`), Google로 로그인하면 Google이 준 번호였다. 같은 사람이 어떤 방법으로 로그인했는지에 따라 blog가 받는 `sub`가 달라지면, blog는 두 사람으로 여긴다.
+
+> **`sub` 클레임이란?**
+> ID 토큰 안의 "이 토큰이 누구에 대한 것인가"를 나타내는 값이다. OIDC 규칙상 **한 인가 서버 안에서 한 사람에게 하나뿐이고 바뀌지 않는 값**이어야 한다. 앱(blog)은 이 값으로 자기 DB의 회원과 연결한다.
+
+`uid`는 사람이 고르는 값이라 나중에 바꾸게 할 수도 있다. 그래서 바뀌지 않는 **회원 id(`users.id`)**를 `sub`로 쓴다.
+
+### 로그인 결과에서 회원 id 꺼내기: `AccountPrincipal`
+로그인 방식마다 Spring Security가 세션에 넣는 사용자 객체(`principal`)가 다르다.
+
+| 로그인 방식 | `principal` | 만드는 곳 |
+|---|---|---|
+| 아이디·비밀번호 | `AccountUserDetails` | `UserDetailService` |
+| Google | `AccountOAuth2User` | `OAuth2UserCustomService` |
+
+두 클래스가 모두 `AccountPrincipal` 인터페이스(`getUserId()` 하나)를 구현하게 했다. 토큰을 만드는 쪽은 로그인 방식을 몰라도 `AccountPrincipal`로 회원 id를 꺼낼 수 있다. 1-5까지는 `User` 엔티티가 `UserDetails`를 직접 구현했는데, 엔티티에서 보안 코드를 떼어 내 `AccountUserDetails`로 옮겼다.
+
+> **`principal`이란?**
+> 로그인한 사용자를 나타내는 객체로, `Authentication` 안에 들어 있다. 어떤 클래스를 넣을지는 로그인을 처리하는 코드가 정한다.
+
+### 토큰에 값 넣기: `OAuth2TokenCustomizer`
+Spring Authorization Server는 토큰을 서명하기 직전에 `OAuth2TokenCustomizer<JwtEncodingContext>` 빈을 호출한다. 여기서 클레임을 바꾸거나 더할 수 있다.
+
+```java
+context.getClaims().subject(String.valueOf(account.getUserId()));   // 모든 토큰의 sub = 회원 id
+if (ID 토큰이면) {
+    if (profile 범위) { nickname, preferred_username(=uid) }
+    if (email 범위)   { email }
+}
 ```
 
-## 9. 아직 남은 것
+> **클레임이란?**
+> 토큰 안에 담긴 "이름: 값" 한 쌍이다. `sub`, `iss`, `aud`, `exp`는 표준 클레임이고, `nickname`처럼 OIDC가 이름만 정해 둔 것도 있다.
+
+> **scope(범위)란?**
+> 앱이 권한 요청에서 "이 정보까지 주세요"라고 적는 값이다. `openid`는 OIDC를 쓰겠다는 뜻, `profile`은 이름·닉네임, `email`은 이메일. 인가 서버는 허락된 범위의 정보만 토큰에 담는다.
+
+### 전체 로그아웃: `/connect/logout`
+blog가 로그아웃할 때 accounts의 로그인 세션도 끝내야 다음에 다시 아이디·비밀번호를 묻는다. OIDC는 이 주소를 **RP-Initiated Logout**이라는 이름으로 정해 두었고, Spring Authorization Server에서는 `/connect/logout`이다.
+
+> **RP-Initiated Logout이란?**
+> RP(Relying Party, 인가 서버에 로그인을 맡기는 앱. 여기서는 blog)가 사용자를 인가 서버의 로그아웃 주소로 보내 인가 서버의 세션까지 끝내는 방식이다. 끝나면 앱이 미리 등록한 주소(`post_logout_redirect_uri`)로 돌려보낸다.
+
+기본 동작은 세션만 지운다. 1-7에서 "로그인 상태 유지" 쿠키를 추가했으므로, 로그아웃 처리기(`OidcLogoutAuthenticationSuccessHandler`)에 세션 삭제와 쿠키 삭제를 묶은 `CompositeLogoutHandler`를 넣었다. 쿠키가 남으면 로그아웃했는데도 다음 요청에서 다시 로그인되기 때문이다.
+
+## 9. 1-7 (1): 화면이 쓸 API
+
+### 화면과 서버의 역할 나누기
+화면(Next.js)은 입력칸과 안내 문구를 그리고, 판단은 Spring이 한다. 화면은 브라우저 안에서 JSON API를 부른다. 로그인과 로그아웃만은 API가 아니라 **폼 전송**으로 한다. 로그인 성공 뒤 어디로 갈지(원래 요청한 `/oauth2/authorize`로 돌아가기 등)를 Spring Security가 리다이렉트로 정하기 때문이다.
+
+### 같은 주소에서 동작하게 하기
+브라우저는 `localhost:3001`(Next.js)만 본다. Next.js의 `rewrites` 설정이 `/api/**`, `/login/password`, `/oauth2/**` 같은 경로를 `localhost:9000`(Spring)으로 넘긴다.
+
+> **rewrites란?**
+> Next.js 서버가 받은 요청을 다른 주소로 대신 보내고, 받은 응답을 그대로 브라우저에 돌려주는 설정이다. 브라우저의 주소창은 바뀌지 않는다.
+
+이렇게 하면 화면과 API가 같은 출처(origin)라서 세션 쿠키가 그대로 오가고 CORS 설정이 필요 없다. Spring이 만드는 리다이렉트 주소와 issuer도 `localhost:3001`이어야 하므로 두 가지를 맞췄다.
+
+- `server.forward-headers-strategy: framework`: Next.js가 붙여 주는 `X-Forwarded-Host: localhost:3001` 헤더를 보고, Spring이 자기 주소를 `localhost:3001`로 여긴다. 리다이렉트 `Location`이 `http://localhost:3001/...`로 나간다.
+- `accounts.issuer: http://localhost:3001`: 토큰의 `iss`와 설정 문서의 주소가 화면 주소와 같아진다. blog는 이 주소 하나만 알면 된다.
+
+> **`X-Forwarded-Host`란?**
+> 요청을 대신 전달하는 서버(프록시)가 "원래 브라우저가 요청한 호스트는 이것이었다"고 알려 주는 헤더다. Spring은 이 설정이 있을 때만 이 헤더를 믿는다.
+
+Google 콘솔의 승인된 리디렉션 URI도 `http://localhost:3001/login/oauth2/code/google`이 된다.
+
+### CSRF: 쿠키로 내려 주고 헤더로 받기
+`csrf.spa()` 한 줄로 설정했다. 서버는 CSRF 토큰을 `XSRF-TOKEN` 쿠키로 내려 주고(JavaScript가 읽을 수 있음), 요청에서는 두 가지 방법 중 하나로 받는다.
+
+| 보내는 방법 | 값 | 쓰는 곳 |
+|---|---|---|
+| `X-XSRF-TOKEN` 헤더 | 쿠키 값 그대로 | `fetch`로 부르는 API |
+| `_csrf` 폼 값 | `GET /api/csrf`가 돌려준 `token` | 로그인, 로그아웃 폼 전송 |
+
+> **CSRF란?**
+> 다른 사이트가 사용자의 브라우저를 이용해 이 사이트로 요청을 보내게 하는 공격이다. 브라우저는 쿠키를 자동으로 붙이므로, 서버는 쿠키만으로는 요청이 이 사이트 화면에서 온 것인지 알 수 없다. 그래서 다른 사이트는 알 수 없는 값(CSRF 토큰)을 요청에 함께 넣게 한다.
+
+폼 값이 쿠키 값과 다른 이유: 폼으로 보내는 토큰은 응답마다 다른 값으로 **가려서(XOR)** 내려 준다. 응답 길이로 토큰을 알아내는 공격(BREACH)을 막기 위한 것이다. 헤더로 보내는 쪽은 쿠키 값을 그대로 받는다.
+
+### 이메일 인증 가입
+프로토타입대로 "가입 신청 → 메일로 받은 6자리 입력 → 가입 완료" 순서다.
+
+1. `POST /api/signup`: 입력값과 중복을 검사하고, 아직 회원이 아니라 `pending_signups`에 신청을 저장한다. 인증번호를 메일로 보내고 202를 돌려준다.
+2. `POST /api/signup/verify`: 인증번호가 맞으면 신청을 `users`로 옮긴다. 201.
+
+인증번호 규칙(`VerificationCodeService`):
+
+| 규칙 | 값 | 이유 |
+|---|---|---|
+| 자릿수 | 6자리 숫자 | 프로토타입 |
+| 유효 시간 | 3분 | 화면의 "남은 시간 03:00" |
+| 저장 | SHA-256 해시 | DB가 새어도 번호를 알 수 없게 |
+| 틀린 횟수 | 5번이면 무효 | 6자리를 하나씩 넣어 보는 공격 방지 |
+
+틀린 횟수를 저장하는 메서드에는 `@Transactional(noRollbackFor = VerificationException.class)`를 붙였다. 예외를 던지면 트랜잭션이 되돌아가서 늘린 횟수까지 사라지기 때문이다.
+
+> **`noRollbackFor`란?**
+> `@Transactional` 메서드에서 지정한 예외가 나도 변경 내용을 되돌리지 않고 저장하게 하는 옵션이다.
+
+인증 전 신청을 `users`에 바로 넣지 않은 이유: 다른 사람의 이메일로 가입 신청만 해 두면 진짜 주인이 그 이메일로 가입하지 못하게 된다. 신청은 1시간 동안만 아이디·닉네임을 잡아 둔다.
+
+메일은 `VerificationMailSender` 인터페이스로 보낸다. `spring.mail.host`가 없으면 `LoggingVerificationMailSender`가 서버 로그에 번호를 찍고, 있으면 `SmtpVerificationMailSender`가 실제로 보낸다.
+
+### 아이디·비밀번호 찾기
+| 단계 | 아이디 찾기 | 비밀번호 찾기 |
+|---|---|---|
+| 1 | `POST /api/find-id/code` (이메일) | `POST /api/password-reset/code` (아이디, 이메일) |
+| 2 | `POST /api/find-id/verify` → `an******01`처럼 가린 아이디 | `POST /api/password-reset/verify` → 일회용 `resetToken` |
+| 3 | | `POST /api/password-reset/complete` (`resetToken`, 새 비밀번호), 10분 안 |
+
+1단계는 가입되지 않은 이메일이어도 같은 응답을 돌려준다. 응답이 다르면 "이 이메일이 가입되어 있는지"를 남이 알아낼 수 있기 때문이다.
+
+### 내 계정, 로그인 상태 유지
+- `GET /api/me`: 닉네임, 아이디, 이메일, 비밀번호 유무, 연결된 소셜 계정. 로그인하지 않았으면 401.
+- `DELETE /api/me/identities/{provider}`: 소셜 계정 연결 해제. 비밀번호가 없는 회원의 마지막 소셜 계정은 해제할 수 없다(409). 해제하면 로그인할 방법이 사라지기 때문이다.
+- `GET /api/auth/providers`: `{"google": true, "kakao": false, "naver": false}`. `application.yml`에 등록한 제공자만 `true`라서, 화면이 카카오·네이버를 "준비 중"으로 보여 준다.
+- 로그인 상태 유지: `TokenBasedRememberMeServices`. 체크하고 로그인하면 `ACCOUNTS_REMEMBER_ME` 쿠키(14일)를 주고, 세션이 끝나도 이 쿠키로 다시 로그인된다.
+
+> **remember-me 쿠키란?**
+> 아이디, 만료 시각, 그리고 이 둘과 비밀번호 해시·서버 비밀 키로 만든 서명을 담은 쿠키다. 서버는 서명을 다시 계산해 맞으면 로그인시킨다. 비밀번호를 바꾸면 서명이 달라져 기존 쿠키는 무효가 된다.
+
+### API는 로그인 후 돌아갈 곳으로 기억하지 않는다
+로그인하지 않은 요청이 막히면 Spring Security는 그 요청을 세션에 저장해 두었다가(`RequestCache`), 로그인 성공 뒤 그 주소로 보낸다. 이 덕분에 `/oauth2/authorize` → 로그인 → 다시 `/oauth2/authorize`가 된다.
+
+문제는 내 계정 화면이 로그인 여부를 알려고 부른 `/api/me`도 저장된다는 것이었다. 그 뒤 로그인하면 `/api/me`의 JSON 화면으로 이동했다. `HttpSessionRequestCache`에 "`/api/**`가 아닌 요청만 저장"하는 조건(`NegatedRequestMatcher`)을 걸어 해결했다(트러블슈팅 13).
+
+## 10. 1-7 (2): Next.js 화면
+
+### 구성
+```
+accounts/frontend/
+├── next.config.ts        rewrites (Spring으로 넘길 경로), / → /account
+├── app/
+│   ├── layout.tsx        글꼴, 테마(라이트·다크) 초기화
+│   ├── globals.css       프로토타입의 색·크기
+│   ├── login/            로그인 (+ 오류·로그아웃 안내)
+│   ├── signup/           회원가입, signup/verify 이메일 인증
+│   ├── find-id/          아이디 찾기 (3단계)
+│   ├── reset-password/   비밀번호 찾기 (4단계)
+│   └── account/          내 계정
+├── components/           AuthShell(화면 틀), 비밀번호 칸, 인증번호 칸, 단계 막대 등
+└── lib/                  api.ts (API 호출, CSRF), validation.ts (입력 규칙), useCountdown.ts
+```
+
+### 프로토타입을 그대로 옮긴 방법
+프로토타입은 화면마다 PC·모바일 × 라이트·다크 4장이다. 4장을 비교하면 구조는 같고 다음만 다르다.
+
+| 차이 | 구현 |
+|---|---|
+| 색 | CSS 변수(`--bg`, `--text`, `--line` 등)를 `[data-theme="dark"]`에서 바꿔 끼운다 |
+| PC: 왼쪽 소개 영역 + 오른쪽 본문 / 모바일: 위쪽 헤더(작은 로고) | 화면 폭 1023px 이하에서 소개 영역을 숨기고 헤더 로고를 보인다 |
+| 제목 크기 32px / 26px | 같은 미디어 쿼리 |
+
+> **CSS 변수란?**
+> `--text: #23343b`처럼 이름을 붙여 둔 값이다. `color: var(--text)`로 쓰고, 상위 요소에서 값을 바꾸면 그 아래 전부가 바뀐다.
+
+> **미디어 쿼리란?**
+> `@media (max-width: 1023px) { ... }`처럼 화면 폭 같은 조건이 맞을 때만 적용되는 CSS다.
+
+입력값 검사 문구(`아이디를 입력해 주세요.` 등), 비밀번호 강도 막대, 인증번호 타이머, 단계 막대는 프로토타입의 스크립트에 있던 규칙을 그대로 옮겼다. 서버가 같은 규칙으로 다시 검사하고, 서버가 돌려준 필드별 오류(`errors.uid` 등)는 해당 칸 아래에 보여 준다.
+
+프로토타입에 없던 화면은 **프로토타입에 먼저 추가한 뒤** 구현했다.
+- 로그인 · 오류 안내: 아이디·비밀번호 실패, 같은 이메일로 가입된 계정, 다른 회원에 연결된 소셜 계정 등을 위쪽 빨간 상자로 보여 준다.
+- 내 계정: 계정 정보, 로그인 방식별 연결·해제, 로그아웃.
+
+### 테마
+`<html data-theme="light|dark">`로 정한다. 저장된 선택이 없으면 운영체제 설정을 따른다. 화면이 그려지기 전에 정해야 깜빡이지 않으므로, `layout.tsx`의 `<head>`에 작은 스크립트를 넣어 가장 먼저 실행한다. 버튼은 이 속성을 바꾸고 `localStorage`에 저장한다.
+
+### 로그인과 로그아웃은 폼 전송
+`fetch`로 로그인하면 Spring이 보내는 리다이렉트(원래 요청한 `/oauth2/authorize`로 돌아가기)를 브라우저 주소에 반영할 수 없다. 그래서 입력값 검사를 마친 뒤 `<form method="post" action="/login/password">`를 만들어 보낸다(`lib/api.ts`의 `submitForm`). `_csrf`는 `/api/csrf`에서 받아 넣는다.
+
+로그인 실패로 `/login?error=bad_credentials`에 돌아오면 아이디 칸을 다시 채운다. 보내기 직전에 아이디를 `sessionStorage`에 잠깐 저장해 두기 때문이다(비밀번호는 저장하지 않는다).
+
+### 화면별 흐름
+| 화면 | 흐름 |
+|---|---|
+| 로그인 | 소셜 버튼: 사용 가능하면 `/oauth2/authorization/{google}`로 이동, 아니면 "준비 중인 로그인 방식이에요." |
+| 회원가입 | 중복확인(`uid-availability`) → 가입 신청 → 이메일과 만료 시각을 `sessionStorage`에 두고 `/signup/verify`로 |
+| 이메일 인증 | 남은 시간 표시, 재전송, 완료 화면 |
+| 아이디·비밀번호 찾기 | 한 화면 안에서 단계(`step`)를 바꾼다 |
+| 내 계정 | `/api/me`가 401이면 `/login`으로. 연결하기 → 소셜 로그인 화면 → 돌아오면 "Google 계정을 연결했어요." |
+
+내 계정에서 소셜 연결이 실패하면 Spring은 `/login?social_error=...`로 보낸다. 로그인 화면은 이미 로그인한 상태(`/api/me` 200)이면 `/account?error=...`로 넘겨, 내 계정 화면에서 오류를 보여 준다.
+
+## 11. 1-7 이후의 구조
+```
+브라우저 ── localhost:3001 (Next.js, accounts/frontend)
+              │ 화면: /login /signup /signup/verify /find-id /reset-password /account
+              │ rewrites ↓ (/api/**, /login/password, /oauth2/**, /login/oauth2/**, /logout,
+              │             /.well-known/**, /userinfo, /connect/**)
+            localhost:9000 (Spring, accounts/backend)
+              ├ 체인 ① AuthorizationServerConfig   OIDC (issuer http://localhost:3001)
+              │    · 등록된 앱: blog (client_secret_basic, PKCE 필수)
+              │    · 토큰: sub = 회원 id, nickname·preferred_username·email
+              │    · /connect/logout: 세션 + 로그인 상태 유지 쿠키 삭제
+              └ 체인 ② SecurityConfig               그 외
+                   · 폼 로그인 POST /login/password (+ 로그인 상태 유지)
+                   · Google 로그인 / 연결 (user_identities)
+                   · API: 가입(이메일 인증), 계정 찾기, 내 계정
+                   · 세션 ACCOUNTS_SESSION, CSRF XSRF-TOKEN 쿠키
+```
+
+## 12. 아직 남은 것
 | 남은 것 | 단계 |
 |---|---|
-| ID 토큰의 `sub`를 회원 id로 통일, `nickname`·`email` 클레임, 전체 로그아웃 | 1-6 |
-| 화면을 Next.js로 교체 | 1-7 |
-| 서명 키 저장, 앱 등록 정보와 발급 토큰을 DB에 저장 | 배포 전 |
+| blog를 accounts의 OIDC 앱(클라이언트)으로 바꾸기 | 2단계 |
+| 카카오·네이버 등록 | 이후 |
+| 서명 키 저장, 앱 등록 정보·발급 토큰·회원을 영구 DB에 저장 | 배포 전 |
+| 약관 내용, 왼쪽 소개 문구 | 배포 전 |
