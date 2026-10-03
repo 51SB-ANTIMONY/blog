@@ -1,5 +1,6 @@
 package kr.antimony.controller;
 
+import jakarta.validation.Valid;
 import kr.antimony.domain.Article;
 import kr.antimony.dto.AddArticleRequest;
 import kr.antimony.dto.ArticleResponse;
@@ -17,11 +18,12 @@ import java.util.List;
 @RestController
 public class BlogApiController {
     private final BlogService blogService;
+
     @PostMapping("/api/articles")
-    public ResponseEntity<Article> addArticle(@RequestBody AddArticleRequest request, Principal principal) {
+    public ResponseEntity<ArticleResponse> addArticle(@Valid @RequestBody AddArticleRequest request, Principal principal) {
         Article savedArticle = blogService.save(request, principal.getName());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(savedArticle);
+                .body(new ArticleResponse(savedArticle));
     }
 
     @GetMapping("/api/articles")
@@ -44,15 +46,15 @@ public class BlogApiController {
     @DeleteMapping("/api/articles/{id}")
     public ResponseEntity<Void> deleteArticle(@PathVariable long id) {
         blogService.delete(id);
-        return ResponseEntity.ok()
+        return ResponseEntity.noContent()
                 .build();
     }
 
     @PutMapping("/api/articles/{id}")
-    public ResponseEntity<Article> updateArticle(@PathVariable long id,
-                                                 @RequestBody UpdateArticleRequest request) {
+    public ResponseEntity<ArticleResponse> updateArticle(@PathVariable long id,
+                                                         @Valid @RequestBody UpdateArticleRequest request) {
         Article updatedArticle = blogService.update(id, request);
         return ResponseEntity.ok()
-                .body(updatedArticle);
+                .body(new ArticleResponse(updatedArticle));
     }
 }

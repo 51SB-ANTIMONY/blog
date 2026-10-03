@@ -95,7 +95,10 @@ class BlogApiControllerTest {
                 .content(requestBody));
 
         // then
-        result.andExpect(status().isCreated());
+        result.andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.title").value(title))
+                .andExpect(jsonPath("$.author").value("username"));
 
         List<Article> articles = blogRepository.findAll();
 
@@ -118,8 +121,10 @@ class BlogApiControllerTest {
         // then
         resultActions
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(savedArticle.getId()))
                 .andExpect(jsonPath("$[0].content").value(savedArticle.getContent()))
-                .andExpect(jsonPath("$[0].title").value(savedArticle.getTitle()));
+                .andExpect(jsonPath("$[0].title").value(savedArticle.getTitle()))
+                .andExpect(jsonPath("$[0].author").value(savedArticle.getAuthor()));
     }
 
     @DisplayName("findArticle: 아티클 단건 조회에 성공한다.")
@@ -149,7 +154,7 @@ class BlogApiControllerTest {
 
         // when
         mockMvc.perform(delete(url, savedArticle.getId()))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent());
 
         // then
         List<Article> articles = blogRepository.findAll();
@@ -182,6 +187,92 @@ class BlogApiControllerTest {
 
         assertThat(article.getTitle()).isEqualTo(newTitle);
         assertThat(article.getContent()).isEqualTo(newContent);
+    }
+
+    @DisplayName("findArticle: 없는 아티클을 조회하면 404와 에러 메시지를 응답한다.")
+    @Test
+    public void findArticle_notFound() throws Exception {
+        // given
+        final String url = "/api/articles/{id}";
+        final long missingId = 999_999L;
+
+        // when
+        final ResultActions resultActions = mockMvc.perform(get(url, missingId));
+
+        // then
+        resultActions
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("글을 찾을 수 없습니다. (id: " + missingId + ")"));
+    }
+
+    @DisplayName("updateArticle: 작성자가 아니면 403을 응답하고 아티클은 바뀌지 않는다.")
+    @Test
+    public void updateArticle_forbidden() throws Exception {
+        // given
+        final String url = "/api/articles/{id}";
+        Article savedArticle = blogRepository.save(Article.builder()
+                .title("title")
+                .author("other@gmail.com")
+                .content("content")
+                .build());
+
+        UpdateArticleRequest request = new UpdateArticleRequest("new title", "new content");
+
+        // when
+        ResultActions result = mockMvc.perform(put(url, savedArticle.getId())
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(objectMapper.writeValueAsString(request)));
+
+        // then
+        result.andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("글 작성자만 수정하거나 삭제할 수 있습니다."));
+
+        Article article = blogRepository.findById(savedArticle.getId()).get();
+        assertThat(article.getTitle()).isEqualTo("title");
+    }
+
+    @DisplayName("deleteArticle: 작성자가 아니면 403을 응답하고 아티클은 삭제되지 않는다.")
+    @Test
+    public void deleteArticle_forbidden() throws Exception {
+        // given
+        final String url = "/api/articles/{id}";
+        Article savedArticle = blogRepository.save(Article.builder()
+                .title("title")
+                .author("other@gmail.com")
+                .content("content")
+                .build());
+
+        // when
+        ResultActions result = mockMvc.perform(delete(url, savedArticle.getId()));
+
+        // then
+        result.andExpect(status().isForbidden());
+        assertThat(blogRepository.findById(savedArticle.getId())).isPresent();
+    }
+
+    @DisplayName("addArticle: 제목과 내용이 비어 있으면 400과 필드별 에러를 응답한다.")
+    @Test
+    public void addArticle_invalid() throws Exception {
+        // given
+        final String url = "/api/articles";
+        final String requestBody = objectMapper.writeValueAsString(new AddArticleRequest(" ", ""));
+
+        Principal principal = Mockito.mock(Principal.class);
+        Mockito.when(principal.getName()).thenReturn("username");
+
+        // when
+        ResultActions result = mockMvc.perform(post(url)
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .principal(principal)
+                .content(requestBody));
+
+        // then
+        result.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("입력값을 확인해 주세요."))
+                .andExpect(jsonPath("$.errors.title").value("제목을 입력해 주세요."))
+                .andExpect(jsonPath("$.errors.content").value("내용을 입력해 주세요."));
+
+        assertThat(blogRepository.findAll()).isEmpty();
     }
 
     private Article createDefaultArticle() {

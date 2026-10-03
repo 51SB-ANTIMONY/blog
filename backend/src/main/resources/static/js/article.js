@@ -118,7 +118,7 @@ function httpRequest(method, url, body, success, fail) {
         },
         body: body,
     }).then(response => {
-        if (response.status === 200 || response.status === 201) {
+        if (response.ok) {
             return success();
         }
         const refresh_token = getCookie('refresh_token');

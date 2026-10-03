@@ -83,6 +83,7 @@ src/main/java/kr/antimony
 ├── repository/                          # BlogRepository, UserRepository, RefreshTokenRepository
 ├── domain/                              # Article, User, RefreshToken
 ├── dto/                                 # 요청/응답 DTO
+├── exception/                           # API 예외, 공통 에러 응답, GlobalExceptionHandler
 └── util/CookieUtil.java                 # 쿠키 추가/삭제, 직렬화
 
 src/main/resources
@@ -121,14 +122,51 @@ refresh_token
 ### REST API
 | 메서드 | URL | 설명 | 인증 | 성공 응답 |
 |---|---|---|---|---|
-| `POST` | `/api/articles` | 글 작성. 작성자는 로그인 사용자 | 필요 | 201 Created, 저장된 글 |
-| `GET` | `/api/articles` | 글 목록 조회 | 필요 | 200 OK, `[{title, content}]` |
-| `GET` | `/api/articles/{id}` | 글 상세 조회 | 필요 | 200 OK, `{title, content}` |
-| `PUT` | `/api/articles/{id}` | 글 수정. **작성자만** | 필요 | 200 OK, 수정된 글 |
-| `DELETE` | `/api/articles/{id}` | 글 삭제. **작성자만** | 필요 | 200 OK |
+| `POST` | `/api/articles` | 글 작성. 작성자는 로그인 사용자 | 필요 | 201 Created, 글 |
+| `GET` | `/api/articles` | 글 목록 조회 (최신순) | 필요 | 200 OK, 글 배열 |
+| `GET` | `/api/articles/{id}` | 글 상세 조회 | 필요 | 200 OK, 글 |
+| `PUT` | `/api/articles/{id}` | 글 수정. **작성자만** | 필요 | 200 OK, 글 |
+| `DELETE` | `/api/articles/{id}` | 글 삭제. **작성자만** | 필요 | 204 No Content |
 | `POST` | `/api/token` | 리프레시 토큰으로 액세스 토큰 재발급 | 불필요 | 201 Created, `{accessToken}` |
 
-`/api/**` 요청에 유효한 액세스 토큰이 없으면 `401 Unauthorized`가 응답됩니다.
+**글 응답 형식** (작성, 조회, 수정 모두 같음)
+```json
+{
+  "id": 4,
+  "title": "제목",
+  "content": "내용",
+  "author": "a@gmail.com",
+  "createdAt": "2026-10-03T14:30:00.123456",
+  "updatedAt": "2026-10-03T14:30:00.123456"
+}
+```
+
+**입력값 규칙** (작성, 수정)
+| 필드 | 규칙 |
+|---|---|
+| `title` | 필수, 공백만은 안 됨, 255자 이하 |
+| `content` | 필수, 공백만은 안 됨 |
+
+### 에러 응답
+모든 REST API의 에러는 같은 형식으로 응답합니다.
+```json
+{
+  "message": "입력값을 확인해 주세요.",
+  "errors": { "title": "제목을 입력해 주세요." }
+}
+```
+`errors`는 입력값 검증 실패일 때 필드별 메시지를 담고, 그 밖에는 빈 객체(`{}`)입니다.
+
+| 상태 코드 | 상황 | `message` 예시 |
+|---|---|---|
+| `400 Bad Request` | 입력값 검증 실패 | `입력값을 확인해 주세요.` (+ `errors`) |
+| `400 Bad Request` | JSON 형식 오류 | `요청 본문을 읽을 수 없습니다. JSON 형식을 확인해 주세요.` |
+| `400 Bad Request` | 경로 값 형식 오류 (`/api/articles/abc`) | `잘못된 요청 값입니다: id` |
+| `401 Unauthorized` | 액세스 토큰 없음, 만료, 위조 | (본문 없음) |
+| `403 Forbidden` | 작성자가 아닌 사용자의 수정, 삭제 | `글 작성자만 수정하거나 삭제할 수 있습니다.` |
+| `404 Not Found` | 없는 글 | `글을 찾을 수 없습니다. (id: 999)` |
+
+에러 처리는 `exception/GlobalExceptionHandler`(`@RestControllerAdvice`)가 한곳에서 담당합니다.
 
 ### 요청, 응답 예시
 **글 작성**
@@ -143,7 +181,7 @@ Content-Type: application/json
 HTTP/1.1 201 
 Content-Type: application/json
 
-{"id": 4, "title": "제목", "content": "내용", "author": "a@gmail.com", "createdAt": "...", "updatedAt": "..."}
+{"id": 4, "title": "제목", "content": "내용", "author": "a@gmail.com", "createdAt": "2026-10-03T14:30:00.123456", "updatedAt": "2026-10-03T14:30:00.123456"}
 ```
 
 **액세스 토큰 재발급**
@@ -400,7 +438,7 @@ jwt:
 ```
 | 테스트 클래스 | 대상 | 내용 |
 |---|---|---|
-| `BlogApiControllerTest` | 글 API | 작성, 목록, 상세, 수정, 삭제. `SecurityContextHolder`에 테스트 사용자를 넣고 작성자 확인까지 검증 |
+| `BlogApiControllerTest` | 글 API | 작성, 목록, 상세, 수정, 삭제와 응답 형식. 없는 글 404, 작성자가 아닌 사용자의 수정·삭제 403, 입력값 검증 400. `SecurityContextHolder`에 테스트 사용자를 넣어 작성자 확인까지 검증 |
 | `TokenProviderTest` | JWT | 토큰 생성, 만료 토큰 거부, 유효 토큰 통과, `Authentication` 생성, `id` 클레임 추출 |
 | `TokenApiControllerTest` | 토큰 재발급 API | 저장된 리프레시 토큰으로 새 액세스 토큰 발급 |
 
@@ -431,23 +469,23 @@ jwt:
 
 ### 1. 글 조회 응답에 id가 없음
 - **문제**: 글 목록과 상세 조회 응답에 `title`, `content`만 있고 `id`가 없다. 클라이언트가 목록에서 글을 골라 상세 조회, 수정, 삭제 요청을 보낼 수 없다.
-- **원인**:
-- **해결**:
+- **원인**: 조회 응답 DTO `ArticleResponse`에 `title`, `content` 필드만 정의되어 있었다.
+- **해결**: `ArticleResponse`에 `id`, `author`, `createdAt`, `updatedAt`을 추가했다. 테스트에서 응답의 `id`, `author`를 확인한다.
 
 ### 2. API마다 응답 형식이 다름
 - **문제**: 글 작성(`POST`)과 수정(`PUT`)은 엔티티를 그대로 응답하고, 조회(`GET`)는 DTO로 응답한다.
-- **원인**:
-- **해결**:
+- **원인**: `BlogApiController`의 작성, 수정 메서드가 `ResponseEntity<Article>`로 엔티티를 그대로 반환했다. 엔티티를 응답하면 엔티티 필드를 바꿀 때마다 API 응답도 함께 바뀌고, 응답에 넣을 필드를 따로 고를 수 없다.
+- **해결**: 작성, 목록, 상세, 수정이 모두 `ArticleResponse`를 반환하도록 통일했다. 삭제는 돌려줄 내용이 없으므로 `204 No Content`로 응답한다.
 
 ### 3. 없는 글을 조회하거나 수정하면 500 에러 발생
 - **문제**: 존재하지 않는 id로 조회, 수정 요청을 보내면 404 Not Found가 아니라 500 Internal Server Error가 응답된다.
-- **원인**:
-- **해결**:
+- **원인**: `BlogService`가 글을 찾지 못하면 `IllegalArgumentException`을 던졌는데, 이 예외를 HTTP 상태 코드로 바꾸는 처리가 없었다. 처리되지 않은 예외는 Spring이 500으로 응답한다.
+- **해결**: `ApiException`(상태 코드를 가진 예외)을 상속한 `ArticleNotFoundException`(404)을 만들고, `@RestControllerAdvice`인 `GlobalExceptionHandler`가 `{"message", "errors"}` 형식의 에러 응답으로 바꾸도록 했다. 입력값 검증 실패, JSON 형식 오류, 경로 값 형식 오류는 400으로 처리한다.
 
 ### 4. 없는 글을 삭제해도 200 OK 응답
 - **문제**: 존재하지 않는 id로 삭제 요청을 보내도 200 OK가 응답된다.
-- **원인**:
-- **해결**:
+- **원인**: 처음에는 `blogRepository.deleteById(id)`를 바로 호출했다. Spring Data JPA 3.0부터 `deleteById`는 대상이 없으면 예외 없이 아무것도 하지 않으므로, 컨트롤러는 항상 200을 응답했다. 이후 작성자 확인을 넣으면서 글을 먼저 조회하게 되었지만, 그때는 3번과 같은 이유로 500이 응답되었다.
+- **해결**: 삭제도 `findById()`로 글을 먼저 조회해서, 없으면 `ArticleNotFoundException`(404)을 던진다. 성공하면 `204 No Content`로 응답한다.
 
 ### 5. 로그아웃해도 토큰이 남아 API를 계속 사용할 수 있음
 - **문제**: 글 목록의 로그아웃 버튼을 누르면 `/login`으로 이동하지만, 다시 글 목록으로 가면 글 등록, 수정, 삭제가 그대로 된다.
@@ -467,7 +505,7 @@ jwt:
 ### 8. 다른 사람의 글을 수정하거나 삭제하면 500 에러 발생
 - **문제**: 작성자가 아닌 사용자가 글 수정, 삭제 요청을 보내면 403 Forbidden이 아니라 500 Internal Server Error가 응답된다.
 - **원인**: `BlogService.authorizeArticleAuthor()`가 작성자가 다르면 `IllegalArgumentException("not authorized")`을 던지고, 이 예외를 HTTP 상태 코드로 바꾸는 처리가 없다.
-- **해결**:
+- **해결**: 작성자가 다르면 `ArticleForbiddenException`(403)을 던지고, `GlobalExceptionHandler`가 `{"message": "글 작성자만 수정하거나 삭제할 수 있습니다.", "errors": {}}`로 응답한다. 수정, 삭제 각각에 대해 403 응답과 데이터가 바뀌지 않는 것을 테스트로 확인한다.
 
 ### 9. 이름이 같은 Google 사용자가 로그인하면 실패
 - **문제**: 이미 가입한 사용자와 Google 계정 이름이 같은 사용자가 처음 로그인하면 회원 저장에 실패한다.
@@ -500,7 +538,7 @@ jwt:
 - [x] Google OAuth 2.0 로그인
 - [x] 글 작성자 저장, 작성자만 수정·삭제
 - [ ] 토큰 기반 로그아웃 (리프레시 토큰 삭제 API)
-- [ ] 예외 처리 통일 (404, 403 응답, 공통 에러 응답 형식)
+- [x] 예외 처리 통일 (404, 403 응답, 공통 에러 응답 형식), 입력값 검증, 응답 DTO 통일
 - [ ] 토큰 보관 방식 개선 (`HttpOnly` 쿠키, URL 토큰 전달 제거)
 - [ ] 이전 폼 로그인 코드 정리
 - [ ] AWS: RDS 연결, S3 이미지 업로드, Elastic Beanstalk 배포
