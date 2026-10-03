@@ -4,6 +4,7 @@ import kr.antimony.accounts.domain.User;
 import kr.antimony.accounts.dto.SignupRequest;
 import kr.antimony.accounts.repository.UserIdentityRepository;
 import kr.antimony.accounts.repository.UserRepository;
+import kr.antimony.accounts.security.AccountUserDetails;
 import kr.antimony.accounts.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -48,8 +49,9 @@ class OAuth2UserCustomServiceTest {
     @Test
     void loggedInWithPassword_links() {
         User local = userService.signup(new SignupRequest("gildong", "a@gmail.com", "길동", "password123"));
-        // 폼 로그인에 성공하면 Authentication의 principal은 UserDetailService가 돌려준 User다.
-        var current = UsernamePasswordAuthenticationToken.authenticated(local, null, local.getAuthorities());
+        // 폼 로그인에 성공하면 Authentication의 principal은 UserDetailService가 돌려준 AccountUserDetails다.
+        AccountUserDetails details = new AccountUserDetails(local);
+        var current = UsernamePasswordAuthenticationToken.authenticated(details, null, details.getAuthorities());
 
         User user = oAuth2UserCustomService.resolveUser(current, "google", "google-sub-1", "a@gmail.com", "홍길동");
 

@@ -9,6 +9,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import kr.antimony.accounts.domain.User;
+import kr.antimony.accounts.repository.UserIdentityRepository;
+import kr.antimony.accounts.repository.UserRepository;
+import kr.antimony.accounts.security.AccountUserDetails;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
@@ -19,6 +26,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,6 +50,15 @@ class AuthorizationServerTest {
 
     @Value("${accounts.clients.blog.redirect-uri}")
     String blogRedirectUri;
+
+    @Autowired
+    UserRepository userRepository;
+
+    @Autowired
+    UserIdentityRepository userIdentityRepository;
+
+    @Autowired
+    ObjectMapper objectMapper;
 
     @DisplayName("설정 문서: issuer와 각 엔드포인트 주소를 공개한다.")
     @Test
@@ -95,14 +112,23 @@ class AuthorizationServerTest {
         assertThat(query.getFirst("code")).isNull();
     }
 
-    @DisplayName("권한 부여 코드 방식: 로그인한 사용자는 코드를 받고, blog 서버는 코드를 토큰으로 교환한다.")
+    @DisplayName("권한 부여 코드 방식: 로그인한 사용자는 코드를 받고, blog 서버는 코드를 토큰으로 교환한다. 토큰의 sub는 회원 id다.")
     @Test
     void authorizationCodeFlow() throws Exception {
+        userIdentityRepository.deleteAll();
+        userRepository.deleteAll();
+        User member = userRepository.save(User.builder()
+                .uid("tester01")
+                .email("tester@antimony.kr")
+                .nickname("테스터")
+                .password("{noop}unused")
+                .build());
+        AccountUserDetails details = new AccountUserDetails(member);
         String codeVerifier = newCodeVerifier();
 
         // ① 로그인한 사용자의 권한 요청 → 코드와 함께 blog로 리다이렉트
-        MvcResult authorizeResult = mockMvc.perform(get(authorizeUri(blogRedirectUri, "openid profile", "test-state", codeChallenge(codeVerifier)))
-                        .with(user("tester")))
+        MvcResult authorizeResult = mockMvc.perform(get(authorizeUri(blogRedirectUri, "openid profile email", "test-state", codeChallenge(codeVerifier)))
+                        .with(authentication(UsernamePasswordAuthenticationToken.authenticated(details, null, details.getAuthorities()))))
                 .andExpect(status().is3xxRedirection())
                 .andReturn();
 
@@ -114,7 +140,7 @@ class AuthorizationServerTest {
         assertThat(code).isNotBlank();
 
         // ② blog 서버가 Client Secret으로 자신을 인증하고 코드를 토큰으로 교환
-        mockMvc.perform(post("/oauth2/token")
+        MvcResult tokenResult = mockMvc.perform(post("/oauth2/token")
                         .with(httpBasic("blog", blogClientSecret))
                         .param("grant_type", "authorization_code")
                         .param("code", code)
@@ -124,7 +150,33 @@ class AuthorizationServerTest {
                 .andExpect(jsonPath("$.access_token").isNotEmpty())
                 .andExpect(jsonPath("$.refresh_token").isNotEmpty())
                 .andExpect(jsonPath("$.id_token").isNotEmpty())
-                .andExpect(jsonPath("$.token_type").value("Bearer"));
+                .andExpect(jsonPath("$.token_type").value("Bearer"))
+                .andReturn();
+
+        // ③ ID 토큰: sub는 회원 id, profile·email 범위의 클레임이 들어 있다.
+        JsonNode tokens = objectMapper.readTree(tokenResult.getResponse().getContentAsString());
+        JsonNode idToken = decodePayload(tokens.get("id_token").asText());
+        assertThat(idToken.get("sub").asText()).isEqualTo(String.valueOf(member.getId()));
+        // aud는 대상이 하나면 문자열, 여러 개면 배열로 들어간다.
+        JsonNode aud = idToken.get("aud");
+        assertThat(aud.isArray() ? aud.get(0).asText() : aud.asText()).isEqualTo("blog");
+        assertThat(idToken.get("nickname").asText()).isEqualTo("테스터");
+        assertThat(idToken.get("preferred_username").asText()).isEqualTo("tester01");
+        assertThat(idToken.get("email").asText()).isEqualTo("tester@antimony.kr");
+
+        // ④ 액세스 토큰의 sub도 회원 id. /userinfo도 같은 정보를 돌려준다.
+        String accessToken = tokens.get("access_token").asText();
+        assertThat(decodePayload(accessToken).get("sub").asText()).isEqualTo(String.valueOf(member.getId()));
+        mockMvc.perform(get("/userinfo").header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sub").value(String.valueOf(member.getId())))
+                .andExpect(jsonPath("$.nickname").value("테스터"))
+                .andExpect(jsonPath("$.email").value("tester@antimony.kr"));
+    }
+
+    private JsonNode decodePayload(String jwt) throws Exception {
+        String payload = jwt.split("\\.")[1];
+        return objectMapper.readTree(Base64.getUrlDecoder().decode(payload));
     }
 
     @DisplayName("토큰 요청: Client Secret이 틀리면 401을 응답한다.")

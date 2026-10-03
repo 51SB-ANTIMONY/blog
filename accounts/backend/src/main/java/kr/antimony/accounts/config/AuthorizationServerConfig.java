@@ -27,6 +27,12 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
+import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames;
+import kr.antimony.accounts.domain.User;
+import kr.antimony.accounts.repository.UserRepository;
+import kr.antimony.accounts.security.AccountPrincipal;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
@@ -74,7 +80,8 @@ public class AuthorizationServerConfig {
     public RegisteredClientRepository registeredClientRepository(
             PasswordEncoder passwordEncoder,
             @Value("${accounts.clients.blog.client-secret}") String blogClientSecret,
-            @Value("${accounts.clients.blog.redirect-uri}") String blogRedirectUri) {
+            @Value("${accounts.clients.blog.redirect-uri}") String blogRedirectUri,
+            @Value("${accounts.clients.blog.post-logout-redirect-uri}") String blogPostLogoutRedirectUri) {
         RegisteredClient blog = RegisteredClient.withId("blog")
                 .clientId("blog")
                 // 토큰 요청 때 받은 Client Secret을 PasswordEncoder로 비교하므로 암호화해서 저장한다.
@@ -83,6 +90,8 @@ public class AuthorizationServerConfig {
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .redirectUri(blogRedirectUri)
+                // 전체 로그아웃(/connect/logout) 후 돌아갈 주소
+                .postLogoutRedirectUri(blogPostLogoutRedirectUri)
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
                 .scope(OidcScopes.EMAIL)
@@ -100,6 +109,32 @@ public class AuthorizationServerConfig {
                         .build())
                 .build();
         return new InMemoryRegisteredClientRepository(blog);
+    }
+
+    // 발급하는 토큰에 우리 회원 정보를 넣는다.
+    // - sub: 로그인 방식(아이디·비밀번호, Google)과 상관없이 우리 회원 id
+    // - ID 토큰: profile 범위면 nickname, preferred_username(아이디), email 범위면 email
+    // /userinfo는 ID 토큰의 클레임 중 허락된 범위의 것만 돌려준다.
+    @Bean
+    public OAuth2TokenCustomizer<JwtEncodingContext> tokenCustomizer(UserRepository userRepository) {
+        return context -> {
+            if (!(context.getPrincipal().getPrincipal() instanceof AccountPrincipal account)) {
+                return;
+            }
+            context.getClaims().subject(String.valueOf(account.getUserId()));
+
+            if (OidcParameterNames.ID_TOKEN.equals(context.getTokenType().getValue())) {
+                User user = userRepository.findById(account.getUserId())
+                        .orElseThrow(() -> new IllegalStateException("회원을 찾을 수 없습니다: " + account.getUserId()));
+                if (context.getAuthorizedScopes().contains(OidcScopes.PROFILE)) {
+                    context.getClaims().claim("nickname", user.getNickname());
+                    context.getClaims().claim("preferred_username", user.getUid());
+                }
+                if (context.getAuthorizedScopes().contains(OidcScopes.EMAIL)) {
+                    context.getClaims().claim("email", user.getEmail());
+                }
+            }
+        };
     }
 
     // 토큰 서명용 RSA 키. 개인 키로 서명하고, 공개 키는 /oauth2/jwks로 공개된다.
