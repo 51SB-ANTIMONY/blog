@@ -63,8 +63,10 @@ class TokenApiControllerTest {
         final String url = "/api/token";
 
         User testUser = userRepository.save(User.builder()
-                .email("user@gmail.com")
+                .uid("token-api")
+                .email("token-api@gmail.com")
                 .password("test")
+                .nickname("token-api")
                 .build());
 
         String refreshToken = JwtFactory.builder()

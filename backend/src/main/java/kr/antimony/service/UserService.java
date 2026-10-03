@@ -17,7 +17,9 @@ public class UserService {
     public Long save(AddUserRequest dto) {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         return userRepository.save(User.builder()
+                .uid(dto.getUid())
                 .email(dto.getEmail())
+                .nickname(dto.getNickname())
         //        .password(passwordEncoder.encode(dto.getPassword()))
                 .password(encoder.encode(dto.getPassword()))
                 .build()).getId();

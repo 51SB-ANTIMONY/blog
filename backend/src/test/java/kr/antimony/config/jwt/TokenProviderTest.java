@@ -35,8 +35,10 @@ class TokenProviderTest {
     void generateToken() {
         // given
         User testUser = userRepository.save(User.builder()
-                .email("user@gmail.com")
+                .uid("token-provider")
+                .email("token-provider@gmail.com")
                 .password("test")
+                .nickname("token-provider")
                 .build());
 
         // when

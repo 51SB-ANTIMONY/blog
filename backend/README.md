@@ -97,9 +97,10 @@ src/main/resources
 ```
 users
 ├── id          BIGINT   PK, 자동 증가
+├── uid         VARCHAR  아이디·비밀번호 로그인의 아이디 (회원가입 정리 후 NOT NULL, UNIQUE 예정)
 ├── email       VARCHAR  NOT NULL, UNIQUE
 ├── password    VARCHAR  (OAuth 회원은 NULL)
-└── nickname    VARCHAR  UNIQUE
+└── nickname    VARCHAR  NOT NULL, UNIQUE   ← OAuth 가입 시 제공자의 이름으로 자동 설정
 
 article
 ├── id          BIGINT    PK, 자동 증가

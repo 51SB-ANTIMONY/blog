@@ -22,17 +22,23 @@ public class User implements UserDetails {
     @Column(name = "id", updatable = false)
     private Long id;
 
+    // 아이디·비밀번호 로그인에서 쓰는 아이디
+    // TODO: 회원가입 로직을 다듬은 뒤 nullable = false, unique = true로 변경
+    @Column(name = "uid")
+    private String uid;
+
     @Column(name = "email", nullable = false, unique = true)
     private String email;
 
     @Column(name = "password")
     private String password;
 
-    @Column(name = "nickname", unique = true)
+    @Column(name = "nickname", nullable = false, unique = true)
     private String nickname;
 
     @Builder
-    public User(String email, String password, String nickname) {
+    public User(String uid, String email, String password, String nickname) {
+        this.uid = uid;
         this.email = email;
         this.password = password;
         this.nickname = nickname;
@@ -45,7 +51,7 @@ public class User implements UserDetails {
 
     @Override
     public String getUsername() {
-        return email;
+        return uid;
     }
 
     @Override
@@ -70,10 +76,5 @@ public class User implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
-    }
-
-    public User update(String nickname) {
-        this.nickname = nickname;
-        return this;
     }
 }

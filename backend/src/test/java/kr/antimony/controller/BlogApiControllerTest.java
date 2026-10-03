@@ -65,12 +65,15 @@ class BlogApiControllerTest {
     void setSecurityContext() {
         userRepository.deleteAll();
         user = userRepository.save(User.builder()
+                .uid("user")
                 .email("user@gmail.com")
                 .password("test")
+                .nickname("user")
                 .build());
 
+        // 실제 요청에서는 TokenAuthenticationFilter가 토큰의 sub(이메일)를 사용자 이름으로 넣는다.
         SecurityContext context = SecurityContextHolder.getContext();
-        context.setAuthentication(new UsernamePasswordAuthenticationToken(user, user.getPassword(), user.getAuthorities()));
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(user.getEmail(), null, user.getAuthorities()));
     }
 
 
@@ -278,7 +281,7 @@ class BlogApiControllerTest {
     private Article createDefaultArticle() {
         return blogRepository.save(Article.builder()
                 .title("title")
-                .author(user.getUsername())
+                .author(user.getEmail())
                 .content("content")
                 .build());
     }
