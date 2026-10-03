@@ -71,7 +71,7 @@ class BlogApiControllerTest {
                 .nickname("user")
                 .build());
 
-        // 실제 요청에서는 TokenAuthenticationFilter가 토큰의 sub(이메일)를 사용자 이름으로 넣는다.
+        // 이 테스트의 MockMvc는 보안 필터 없이 만든다. 로그인한 사용자를 직접 넣는다.
         SecurityContext context = SecurityContextHolder.getContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(user.getEmail(), null, user.getAuthorities()));
     }

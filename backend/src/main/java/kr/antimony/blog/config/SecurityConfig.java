@@ -1,0 +1,44 @@
+package kr.antimony.blog.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+
+import static org.springframework.boot.security.autoconfigure.web.servlet.PathRequest.toH2Console;
+
+// 로그인은 accounts(OIDC 인가 서버)에 맡긴다.
+// accounts에서 로그인하고 돌아오면 blog는 세션(BLOG_SESSION 쿠키)으로 로그인 상태를 기억한다.
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    public WebSecurityCustomizer configure() {
+        return (web) -> web.ignoring()
+                .requestMatchers(toH2Console())
+                .requestMatchers("/css/**", "/js/**");
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        return http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/new-article", "/api/**").authenticated()
+                        .anyRequest().permitAll())
+                // 로그인이 필요하면 accounts로 보낸다. (등록된 로그인 제공자가 accounts 하나뿐이라 바로 이동)
+                .oauth2Login(oauth2 -> oauth2
+                        .defaultSuccessUrl("/articles"))
+                // API는 accounts로 보내지 않고 401로 응답한다.
+                .exceptionHandling(exceptions -> exceptions
+                        .defaultAuthenticationEntryPointFor(
+                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                                PathPatternRequestMatcher.withDefaults().matcher("/api/**")))
+                .build();
+    }
+}

@@ -1,0 +1,27 @@
+server:
+  servlet:
+    session:
+      cookie:
+        # 같은 localhost에서 실행하는 accounts(ACCOUNTS_SESSION)와 구별하기 위해 이름을 정한다.
+        name: BLOG_SESSION
+
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    defer-datasource-initialization: true
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+  h2:
+    console:
+      enabled: true
+
+# 로그인을 맡기는 인가 서버(accounts). blog는 여기에 등록된 OIDC 클라이언트다.
+accounts:
+  issuer: http://localhost:3001
+  client-id: blog
+  # accounts의 accounts.clients.blog.client-secret과 같은 값
+  client-secret: <blog client secret>
