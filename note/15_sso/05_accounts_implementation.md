@@ -585,7 +585,7 @@ accounts/frontend/
 ## 12. 아직 남은 것
 | 남은 것 | 단계 |
 |---|---|
-| blog를 accounts의 OIDC 앱(클라이언트)으로 바꾸기 | 2단계 |
+| ~~blog를 accounts의 OIDC 앱(클라이언트)으로 바꾸기~~ | 2단계 완료: [blog를 accounts의 OIDC 클라이언트로 바꾸기](./07_blog_oidc_client.md) |
 | 카카오·네이버 등록 | 이후 |
 | 서명 키 저장, 앱 등록 정보·발급 토큰·회원을 영구 DB에 저장 | 배포 전 |
 | 약관 내용, 왼쪽 소개 문구 | 배포 전 |
