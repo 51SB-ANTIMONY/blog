@@ -15,7 +15,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.rememberme.TokenBasedRememberMeServices;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.RequestCache;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 
 import java.time.Duration;
 
@@ -79,6 +82,8 @@ public class SecurityConfig {
                 // accounts에서의 로그아웃 (POST /logout). 세션과 "로그인 상태 유지" 쿠키를 지운다.
                 .logout(logout -> logout
                         .logoutSuccessUrl("/login?logout"))
+                // 로그인 후 돌아갈 주소로 API 요청은 기억하지 않는다. (화면이 보낸 /api/me 401 뒤에 로그인하면 JSON으로 이동하는 문제)
+                .requestCache(cache -> cache.requestCache(requestCache()))
                 // API는 로그인 화면으로 보내지 않고 401로 응답한다.
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
@@ -88,6 +93,13 @@ public class SecurityConfig {
     }
 
     // 소셜 로그인 실패 시 오류 코드를 붙여 로그인 화면으로 보낸다. 예: /login?social_error=email_already_registered
+    private static RequestCache requestCache() {
+        HttpSessionRequestCache requestCache = new HttpSessionRequestCache();
+        requestCache.setRequestMatcher(new NegatedRequestMatcher(
+                PathPatternRequestMatcher.withDefaults().matcher("/api/**")));
+        return requestCache;
+    }
+
     private static AuthenticationFailureHandler socialLoginFailureHandler() {
         return (request, response, exception) -> {
             String code = (exception instanceof OAuth2AuthenticationException oAuth2Exception)

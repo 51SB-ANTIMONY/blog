@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -107,6 +108,19 @@ class AccountSessionApiTest {
                 .andExpect(redirectedUrl("/account"));
         mockMvc.perform(formLogin("/login/password").user("tester01").password("wrong"))
                 .andExpect(redirectedUrl("/login?error=bad_credentials"));
+    }
+
+    @DisplayName("로그인 전에 /api/me가 401을 받았어도, 로그인 후에는 /account로 보낸다. (API 주소를 돌아갈 곳으로 기억하지 않는다)")
+    @Test
+    void loginDoesNotReturnToApi() throws Exception {
+        TestUsers.localUser(userRepository, passwordEncoder, "tester01", "a@antimony.kr", "테스터", "pass1234!");
+        MockHttpSession session = new MockHttpSession();
+
+        mockMvc.perform(get("/api/me").session(session)).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/login/password").session(session).with(csrf())
+                        .param("username", "tester01")
+                        .param("password", "pass1234!"))
+                .andExpect(redirectedUrl("/account"));
     }
 
     @DisplayName("로그인 상태 유지: 체크하고 로그인하면 쿠키를 주고, 그 쿠키만으로 로그인 상태가 된다. 로그아웃하면 지운다.")
