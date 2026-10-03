@@ -1,10 +1,10 @@
 ---
-title: accounts 동작 확인과 트러블슈팅 (1-3 ~ 1-4)
+title: accounts 동작 확인과 트러블슈팅 (1-3 ~ 1-5)
 date: 2026-10-03
 tags: [oidc, authorization-server, pkce, testing, troubleshooting]
 ---
 
-# accounts 동작 확인과 트러블슈팅 (1-3 ~ 1-4)
+# accounts 동작 확인과 트러블슈팅 (1-3 ~ 1-5)
 
 > 구현 과정과 코드는 [accounts 인가 서버 구현 과정](./05_accounts_implementation.md)에 정리했다.
 > 이 노트는 1-3 단계를 마친 뒤 실제로 무엇을 확인했는지, 그 과정에서 어떤 문제를 만나 어떻게 해결했는지 기록한다.
@@ -59,6 +59,23 @@ create table users (
 
 > **`formLogin(...)`, `authenticated()`란?**
 > `spring-security-test`가 제공하는 테스트 도구다. `formLogin("/login").user(...).password(...)`는 CSRF 토큰을 포함해 `POST /login`을 보내고, `authenticated().withUsername(...)`은 그 결과 해당 사용자로 로그인되었는지 확인한다.
+
+### 1-5에서 추가하거나 바꾼 테스트
+`UserServiceTest`(소셜 로그인 부분을 새 규칙으로 다시 작성), `OAuth2UserCustomServiceTest`, `LoginPageTest`
+
+| 테스트 | 확인하는 것 | 결과 |
+|---|---|---|
+| 소셜 가입 | 회원과 연결 행(`user_identities`)이 함께 생긴다 | 통과 |
+| 같은 `sub`, 다른 이메일 | 같은 회원으로 로그인, 닉네임 유지, 회원 수 그대로 | 통과 |
+| 같은 이메일의 회원이 있음 | `email_already_registered`로 거부, 회원·연결 행이 늘지 않음 | 통과 |
+| 명시적 연결 | 아이디 회원에 연결한 뒤 그 소셜 계정으로 로그인하면 같은 회원 | 통과 |
+| 다른 회원에 연결된 소셜 계정 | `linked_to_another_user`로 거부 | 통과 |
+| 같은 연결을 두 번 | 연결 행 1개 그대로 | 통과 |
+| 로그인하지 않은 상태 (`resolveUser(null, ...)`) | 새 회원으로 가입 | 통과 |
+| 폼 로그인 상태 (`principal`이 `User`) | 그 회원에 연결 | 통과 |
+| 로그인 화면 메시지 | 오류 코드 3가지에 맞는 문구 | 통과 |
+
+모두 25개 통과.
 
 ## 2. 실제 서버로 흐름 재현
 서버를 실행(`./gradlew bootRun`)하고, 브라우저가 하는 일을 `curl`로 한 단계씩 따라갔다. 쿠키는 파일에 저장해 다음 요청에 붙였다.
@@ -259,6 +276,20 @@ Google Cloud Console에 승인된 리디렉션 URI `http://localhost:9000/login/
   git update-index --chmod=+x accounts/backend/gradlew
   ```
   `git ls-files -s accounts/backend/gradlew`로 `100755`인지 확인한다.
+
+### 8. 테스트에서 회원을 지우다가 외래 키 제약 위반
+- **문제**: 1-5에서 `user_identities`를 추가한 뒤, `SignupApiControllerTest`의 `userRepository.deleteAll()`이 `Referential integrity constraint violation`으로 실패했다.
+- **원인**: 테스트 클래스들은 같은 H2 DB를 함께 쓴다. 다른 테스트가 만든 `user_identities` 행이 `users`를 외래 키로 참조하고 있어서, 참조당하는 `users` 행을 먼저 지울 수 없었다.
+  > **외래 키 제약이란?**
+  > 한 테이블의 컬럼이 다른 테이블의 행을 가리킬 때(`user_identities.user_id` → `users.id`), 가리키는 대상이 없는 상태가 되지 않도록 DB가 막는 규칙이다. 그래서 참조당하는 행은 참조하는 행보다 먼저 지울 수 없다.
+- **해결**: 테스트 준비 단계에서 `userIdentityRepository.deleteAll()`을 먼저 하고 `userRepository.deleteAll()`을 한다.
+
+### 9. 소셜 로그인 결과의 회원 정보를 읽을 때 `LazyInitializationException`
+- **문제**: `loginWithSocial()`이 돌려준 회원의 닉네임을 읽으려 하자 `Could not initialize proxy [User#7] - no session`이 났다.
+- **원인**: `UserIdentity.user`를 지연 로딩(`FetchType.LAZY`)으로 설정했다. 연결 행을 조회할 때 회원은 실제로 읽지 않고 **프록시**(빈 껍데기 객체)만 넣어 둔다. `loginWithSocial()`의 트랜잭션이 끝난 뒤 프록시의 값을 읽으려 하면, 이미 영속성 컨텍스트가 닫혀서 DB에서 읽을 수 없다([영속성 컨텍스트](../09_database/04_persistence_context.md) 4장).
+- **해결**: 연결 행을 조회하는 메서드에 `@EntityGraph(attributePaths = "user")`를 붙여, 조회할 때 회원까지 한 번의 쿼리로 함께 읽는다. 1-6에서 이 회원의 id, 닉네임으로 토큰을 만들 것이므로 필요하다.
+  > **`@EntityGraph`란?**
+  > Spring Data JPA 메서드에 "이 연관 엔티티는 함께 조회하라"고 지정하는 어노테이션이다. 지연 로딩으로 설정된 연관도 이 메서드에서만은 조인해서 한 번에 읽는다.
 
 ## 4. 정리
 | 확인한 것 | 결과 |
