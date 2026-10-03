@@ -40,11 +40,10 @@ blog 서버가 직접 하던 로그인(Google 로그인, JWT 발급)을 떼어 �
 | **1단계** accounts 서버 | blog의 로그인 코드를 accounts로 옮기고, 표준 OIDC 인가 서버와 로그인 화면을 만든다 | 완료 | [계획](./03_step1_accounts_server.md), [구현](./04_step1_accounts_implementation.md), [확인·트러블슈팅](./05_step1_accounts_verification_and_troubleshooting.md) |
 | **2단계** blog를 OIDC 클라이언트로 | blog가 로그인을 직접 하지 않고 accounts에 맡긴다 | 완료 | [계획](./06_step2_blog_oidc_client_plan.md), [구현·확인·트러블슈팅](./07_step2_blog_oidc_client.md) |
 | **3단계** blog 화면을 Next.js로 | 임시 Thymeleaf 화면을 Next.js로 바꾼다 | 완료 (브라우저 확인 남음) | [계획](./08_step3_blog_frontend_plan.md), [구현·확인·트러블슈팅](./09_step3_blog_frontend.md) |
-| 이후: 배포 준비 | accounts를 운영 환경에서 쓸 수 있게 한다 | 예정 | 아래 4장 |
-| 이후: 저장소 분리 | `accounts/`를 새 Git 저장소로 옮긴다 | 예정 | 아래 4장 |
+| **4단계** 저장소 분리 | `accounts/`를 새 Git 저장소(`51SB-ANTIMONY/accounts`)로 옮긴다 | 진행 중 | [계획·결과](./10_step4_repository_split.md) |
+| **5단계** 배포 준비 | accounts와 blog를 운영 환경에서 쓸 수 있게 한다. 미뤄 둔 브라우저 확인 포함 | 예정 | 아래 4장 |
 
-## 4. 이후 단계 (아직 세부 계획 전)
-### 배포 준비
+## 4. 5단계 배포 준비 (아직 세부 계획 전)
 | 할 일 | 이유 |
 |---|---|
 | 서명 키를 저장해 두고 재사용 | 지금은 서버를 켤 때마다 새로 만들어서, 재시작하면 발급한 토큰을 검증할 수 없다 |
@@ -53,12 +52,7 @@ blog 서버가 직접 하던 로그인(Google 로그인, JWT 발급)을 떼어 �
 | 인증번호 발송 횟수 제한 | 같은 이메일로 메일을 계속 보내게 하는 것을 막으려고 |
 | 실제 주소와 HTTPS (`https://accounts.antimony.kr` 등), `Secure` 쿠키, `X-Forwarded-Proto` 전달 확인 | 지금은 `http://localhost` 기준이다 |
 | 약관, 개인정보 처리방침, 소개 문구 | 화면의 자리 표시 문구를 실제 내용으로 |
-
-### 저장소 분리
-```bash
-git subtree split --prefix=accounts -b accounts-only   # accounts/ 이력만 뽑은 브랜치
-```
-뽑은 브랜치를 새 저장소에 올린 뒤, blog 저장소에서는 `accounts/`를 지운다. 2장의 원칙을 지켜 왔으므로 코드 수정 없이 옮길 수 있어야 한다.
+| 브라우저로 화면 확인 | 3단계에서 미뤘다. PC·모바일, 라이트·다크, 로그인 후 돌아오기 |
 
 ## 5. 현재 구조 (3단계 이후)
 ```
@@ -86,3 +80,4 @@ git subtree split --prefix=accounts -b accounts-only   # accounts/ 이력만 뽑
 | [07 2단계: 구현, 확인, 트러블슈팅](./07_step2_blog_oidc_client.md) | 단계별 코드, blog의 JWT를 지운 이유, 확인 결과, 겪은 문제 |
 | [08 3단계: blog 화면을 Next.js로 (계획)](./08_step3_blog_frontend_plan.md) | 목적, 세부 단계 3-0~3-7, 수행 방안, 정한 것 |
 | [09 3단계: 구현, 확인, 트러블슈팅](./09_step3_blog_frontend.md) | API 보완, Next.js 뒤에 두기, 화면 구현, Thymeleaf 제거, 확인 결과, 겪은 문제 |
+| [10 4단계: 저장소 분리](./10_step4_repository_split.md) | 목적, 분리 전 점검, 세부 단계 4-1~4-6, 수행 방안, 결과 |
