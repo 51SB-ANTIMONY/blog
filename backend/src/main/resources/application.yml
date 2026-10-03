@@ -11,3 +11,7 @@ spring:
   h2:
     console:
       enabled: true
+
+jwt:
+  issuer: issue@antimony.kr # temp
+  secret_key: secret_key # temp
