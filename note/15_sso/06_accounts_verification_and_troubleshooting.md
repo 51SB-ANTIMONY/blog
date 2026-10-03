@@ -1,0 +1,243 @@
+---
+title: accounts 동작 확인과 트러블슈팅 (1-3)
+date: 2026-10-03
+tags: [oidc, authorization-server, pkce, testing, troubleshooting]
+---
+
+# accounts 동작 확인과 트러블슈팅 (1-3)
+
+> 구현 과정과 코드는 [accounts 인가 서버 구현 과정](./05_accounts_implementation.md)에 정리했다.
+> 이 노트는 1-3 단계를 마친 뒤 실제로 무엇을 확인했는지, 그 과정에서 어떤 문제를 만나 어떻게 해결했는지 기록한다.
+> 아래의 토큰 값, 시각은 실제로 실행한 결과다. 비밀 값(Client Secret)은 적지 않는다.
+
+## 1. 자동 테스트
+`accounts/backend/src/test/java/kr/antimony/accounts/AuthorizationServerTest.java`
+
+| 테스트 | 확인하는 것 | 결과 |
+|---|---|---|
+| 설정 문서 | `/.well-known/openid-configuration`에 `issuer`, `authorization_endpoint`, `token_endpoint`, `jwks_uri`가 올바르게 들어 있다 | 통과 |
+| 공개 키 | `/oauth2/jwks`가 RSA 공개 키를 주고, **개인 키 값(`d`)은 주지 않는다** | 통과 |
+| 로그인 전 권한 요청 | 브라우저 요청은 `/login`으로 리다이렉트된다 | 통과 |
+| 등록 안 된 `redirect_uri` | `https://evil.example.com/callback`이면 400. 그 주소로 리다이렉트하지 않는다 | 통과 |
+| PKCE 없는 권한 요청 | 등록된 `redirect_uri`로 `error=invalid_request`를 보내고, `code`는 주지 않는다 | 통과 |
+| 권한 부여 코드 방식 | 로그인한 사용자 → 코드 발급(`state` 그대로) → blog가 Client Secret과 `code_verifier`로 교환 → `access_token`, `refresh_token`, `id_token`, `token_type=Bearer` | 통과 |
+| 잘못된 Client Secret | `/oauth2/token`이 401 | 통과 |
+
+`AccountsApplicationTests`(설정이 올바르게 로드되는지)까지 모두 8개가 통과했다.
+
+> **MockMvc에서 사용자 로그인 흉내 내기**
+> `.with(user("tester"))`는 `spring-security-test`가 제공하는 기능으로, 이 요청이 `tester`라는 사용자로 로그인된 상태인 것처럼 만든다. 로그인 화면을 거치지 않고 권한 요청을 시험할 수 있다.
+
+> **MockMvc에서 앱 인증 흉내 내기**
+> `.with(httpBasic("blog", secret))`는 요청에 `Authorization: Basic Base64("blog:secret")` 헤더를 붙인다. blog 서버가 토큰을 요청할 때 보내는 헤더와 같다.
+
+## 2. 실제 서버로 흐름 재현
+서버를 실행(`./gradlew bootRun`)하고, 브라우저가 하는 일을 `curl`로 한 단계씩 따라갔다. 쿠키는 파일에 저장해 다음 요청에 붙였다.
+
+### PKCE 값 준비
+```
+code_verifier  = 임의의 32바이트를 Base64URL로 (43글자)
+code_challenge = BASE64URL(SHA-256(code_verifier))
+```
+
+### ① 로그인 전 권한 요청
+```http
+GET /oauth2/authorize?response_type=code&client_id=blog&scope=openid%20profile&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Flogin%2Foauth2%2Fcode%2Faccounts&state=s1&code_challenge=...&code_challenge_method=S256
+Accept: text/html
+```
+```http
+HTTP/1.1 302
+Set-Cookie: ACCOUNTS_SESSION=576E67434130FAD3720BF7C94197889B; Path=/; HttpOnly
+Location: http://localhost:9000/login
+```
+- 세션이 만들어지고, 원래 요청(①)이 세션에 저장된다.
+- 세션 쿠키 이름이 설정대로 `ACCOUNTS_SESSION`이다.
+
+### ② 회원가입
+`GET /signup`의 HTML에서 `_csrf` 값을 꺼낸 뒤 폼을 제출했다.
+```http
+POST /user
+Content-Type: application/x-www-form-urlencoded
+
+_csrf=...&uid=tester&email=tester@antimony.kr&password=pw1234&nickname=tester
+```
+```http
+HTTP/1.1 302
+Location: http://localhost:9000/login
+```
+
+### ③ 아이디·비밀번호 로그인
+`GET /login`의 HTML에서 `_csrf` 값을 꺼낸 뒤 로그인했다.
+```http
+POST /login
+Content-Type: application/x-www-form-urlencoded
+
+_csrf=...&username=tester&password=pw1234
+```
+```http
+HTTP/1.1 302
+Location: http://localhost:9000/oauth2/authorize?response_type=code&client_id=blog&scope=openid%20pr...
+```
+로그인 성공 후 **세션에 저장해 둔 ①의 요청으로** 돌아간다. 1-2까지 있던 `OAuth2SuccessHandler` 없이 Spring Security의 기본 동작으로 이루어진다.
+
+### ④ 로그인 후 권한 요청
+```http
+HTTP/1.1 302
+Location: http://localhost:8080/login/oauth2/code/accounts?code=0yYh6I...&state=s1
+```
+- 이번에는 세션에 로그인 정보가 있으므로 로그인 화면 없이 코드가 발급된다. 다른 앱이 같은 요청을 해도 여기서부터 시작하므로 **SSO**가 된다.
+- `state`는 ①에서 보낸 `s1` 그대로다.
+- blog 서버가 아직 이 주소를 처리하지 않으므로 코드만 꺼내서 다음 단계로 갔다.
+
+### ⑤ 코드를 토큰으로 교환 (blog 서버가 할 일)
+```http
+POST /oauth2/token
+Authorization: Basic Base64(blog:<Client Secret>)
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&code=0yYh6I...&redirect_uri=http://localhost:8080/login/oauth2/code/accounts&code_verifier=...
+```
+응답의 필드: `access_token`, `refresh_token`, `id_token`, `scope`, `token_type`, `expires_in`(1799초 = 약 30분)
+
+**ID 토큰** (헤더와 페이로드를 Base64URL 디코딩한 값)
+```json
+// 헤더
+{"kid": "57f91767-843a-479b-9263-7a9e1589057b", "alg": "RS256"}
+// 페이로드
+{
+  "iss": "http://localhost:9000",
+  "sub": "tester",
+  "aud": "blog",
+  "azp": "blog",
+  "auth_time": 1791015081,
+  "iat": 1791015082,
+  "exp": 1791016882,
+  "jti": "b0142f54-7c09-4760-8740-be2fc869fa32"
+}
+```
+**액세스 토큰**도 JWT로 발급되었다.
+```json
+{
+  "iss": "http://localhost:9000",
+  "sub": "tester",
+  "aud": "blog",
+  "scope": ["openid", "profile"],
+  "nbf": 1791015081,
+  "iat": 1791015081,
+  "exp": 1791016881,
+  "jti": "fae09b96-804e-46ec-85c3-9d3c9b11abef"
+}
+```
+| 확인한 점 | 의미 |
+|---|---|
+| `alg: RS256`, `kid` 있음 | 개인 키로 서명했고, 앱은 `/oauth2/jwks`에서 같은 `kid`의 공개 키로 검증한다 |
+| `iss` = 설정한 issuer | 앱이 기대하는 발급자와 비교할 값 |
+| `aud` = `blog` | **blog 전용 토큰**이다. 다른 앱은 이 토큰을 거부한다 |
+| `azp` = `blog` | 토큰을 요청한 앱 |
+| `sub` = `tester` | 아이디 로그인이라 `uid`가 들어갔다. 1-6에서 회원 id로 바꾼다 |
+| `auth_time` | 사용자가 실제로 로그인한 시각. SSO로 세션을 재사용하면 이 값은 과거 시각으로 남는다 |
+| `exp - iat` = 1800초 | 설정한 30분 |
+| `nickname`, `email` 없음 | 1-6에서 추가한다 |
+
+### ⑥ 사용자 정보
+```http
+GET /userinfo
+Authorization: Bearer <access_token>
+```
+```json
+{"sub": "tester"}
+```
+체인 ①의 `oauth2ResourceServer().jwt()`가 액세스 토큰을 검증했다. 지금은 `sub`만 나온다.
+
+### ⑦ 리프레시 토큰 교체 확인
+| 요청 | 결과 |
+|---|---|
+| 처음 받은 리프레시 토큰으로 재발급 | 성공. 새 액세스 토큰과 **새 리프레시 토큰**이 온다 |
+| **처음 리프레시 토큰을 다시** 사용 | `{"error": "invalid_grant"}` (이미 교체됨) |
+| 새 리프레시 토큰으로 재발급 | 성공 |
+
+`reuseRefreshTokens(false)` 설정대로, 재발급할 때마다 리프레시 토큰이 바뀌고 옛것은 쓸 수 없다([리프레시 토큰](../13_jwt/06_refresh_token.md) 5장).
+
+### ⑧ 코드 재사용 확인
+| 요청 | 결과 |
+|---|---|
+| ④의 코드로 **다시** 토큰 요청 | `{"error": "invalid_grant"}` |
+| 그 뒤, 그 코드로 받았던 리프레시 토큰으로 재발급 | `{"error": "invalid_grant"}` |
+
+코드는 한 번만 쓸 수 있고, **코드가 다시 쓰이면 그 코드로 발급한 토큰까지 무효가 된다.** 코드가 누군가에게 탈취되어 두 번 쓰였다는 신호이기 때문이다(트러블슈팅 5번).
+
+### Google 로그인 확인 방법
+Google 로그인은 브라우저가 있어야 해서 직접 확인한다.
+1. accounts 실행 (`cd accounts/backend && ./gradlew bootRun`)
+2. 브라우저에서 다음 주소로 접속 (`code_challenge`는 RFC 7636 부록 B의 예시 값)
+   ```
+   http://localhost:9000/oauth2/authorize?response_type=code&client_id=blog&scope=openid&redirect_uri=http://localhost:8080/login/oauth2/code/accounts&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256
+   ```
+3. 로그인 화면에서 Google 버튼 → Google 로그인
+4. `http://localhost:8080/login/oauth2/code/accounts?code=...`로 이동하면 성공. blog 서버가 아직 이 주소를 처리하지 않으므로 화면은 404여도 된다.
+
+Google Cloud Console에 승인된 리디렉션 URI `http://localhost:9000/login/oauth2/code/google`이 등록되어 있어야 한다.
+
+## 3. 트러블슈팅
+
+### 1. 권한 요청이 400 `invalid_request` (`response_type`)
+- **문제**: 테스트에서 `response_type=code`를 분명히 보냈는데 `/oauth2/authorize`가 400 `[invalid_request] OAuth 2.0 Parameter: response_type`을 응답했다.
+- **원인**: Spring Authorization Server는 `GET /oauth2/authorize`의 파라미터를 **URL의 쿼리 문자열**에서 읽는다. 테스트에서 쓴 MockMvc의 `.param("response_type", "code")`는 요청 파라미터만 만들고 쿼리 문자열은 만들지 않는다. 서버 입장에서는 `response_type`이 없는 요청이었다.
+- **해결**: 파라미터를 주소에 직접 넣어 요청한다.
+  ```java
+  UriComponentsBuilder.fromPath("/oauth2/authorize")
+          .queryParam("response_type", "code")
+          ...
+  ```
+  실제 브라우저는 항상 쿼리 문자열로 보내므로 서버 쪽 문제는 아니다.
+
+### 2. Spring Security 7의 인가 서버는 PKCE가 기본으로 필수
+- **문제**: 1번의 원인을 찾던 중, PKCE 값(`code_challenge`) 없이 보낸 권한 요청에는 코드가 발급되지 않는다는 것을 알게 되었다. PKCE를 설정한 적이 없는데도 필수로 요구되고 있었다.
+- **원인**: Spring Security 7의 인가 서버는 `ClientSettings.builder()`의 기본값이 `requireProofKey(true)`다. 이 프로젝트의 jar(`spring-security-oauth2-authorization-server-7.0.2.jar`)를 `javap`로 열어 `ClientSettings.builder()`가 `requireProofKey(true)`를 호출하는 것을 확인했다. Client Secret이 있는 앱에도 PKCE를 요구하는 OAuth 2.1의 권장 사항을 따른 것이다.
+- **해결**: PKCE를 쓰는 것이 안전하므로 끄지 않고 설정에 `.requireProofKey(true)`로 **명시**했다. 테스트에서는 `code_verifier`를 만들어 `code_challenge`를 권한 요청에, `code_verifier`를 토큰 요청에 넣었다. 2단계에서 blog가 accounts에 연결될 때 blog의 클라이언트 설정도 PKCE를 보내도록 해야 한다.
+- **참고**: 클라이언트 쪽(`oauth2-client`)의 기본값은 다르다. Spring Security 클라이언트는 Client Secret이 있는 앱이면 PKCE를 기본으로 보내지 않는다([권한 부여 코드 승인 방식](../14_oauth/02_authorization_code_grant.md) 8장).
+
+### 3. 주소 이중 인코딩으로 `invalid_scope`
+- **문제**: 1번 방법으로 고쳤더니, 이번에는 코드 대신 `error=invalid_scope`(`OAuth 2.0 Parameter: scope`)가 돌아왔다.
+- **원인**: `scope=openid profile`의 공백을 `UriComponentsBuilder.encode()`가 `%20`으로 인코딩한 **문자열**을 MockMvc의 `get(String)`에 넘겼다. MockMvc는 문자열을 주소 템플릿으로 보고 **한 번 더 인코딩**해서 `%`가 `%25`가 되었다(`%2520`). 서버는 `openid%20profile`이라는 하나의 이상한 범위로 읽었다.
+- **해결**: 문자열 대신 `java.net.URI` 객체를 넘긴다. MockMvc는 `URI`를 그대로 쓴다.
+  ```java
+  return builder.encode().build().toUri();   // toUriString() 대신
+  ```
+
+### 4. 로그인 리다이렉트 주소가 테스트와 실제 서버에서 다르다
+- **문제**: 테스트에서는 `Location: /login`(상대 경로)인데, 실제 서버에서는 `Location: http://localhost:9000/login`(절대 주소)이었다. 처음 쓴 테스트는 `**/login` 패턴을 기대해서 실패했다.
+- **원인**: Spring Security 7의 `LoginUrlAuthenticationEntryPoint`는 상대 경로(`/login`)로 리다이렉트를 요청한다. 그런데 Spring Boot의 내장 Tomcat 설정 `server.tomcat.use-relative-redirects`의 기본값이 `false`라서, 실제 서버에서는 Tomcat이 상대 경로를 절대 주소로 바꿔서 보낸다. Spring Boot 4.0.1의 `TomcatServerProperties`에서 이 필드에 초기값이 없는(`false`) 것을 확인했다. MockMvc 테스트는 Tomcat을 거치지 않으므로 상대 경로가 그대로 보인다.
+- **해결**: 테스트는 Spring Security가 요청한 값(`redirectedUrl("/login")`)으로 확인한다. 앞서 정리한 Spring Security 노트들의 `Location` 예시에도 이 차이를 안내했다.
+
+### 5. 코드 재사용 시험 뒤 리프레시가 실패
+- **문제**: 실제 서버 확인 중 "같은 코드로 다시 토큰 요청"을 먼저 시험한 뒤 리프레시 토큰으로 재발급했더니 `invalid_grant`가 났다.
+- **원인**: 정상 동작이다. RFC 6749 4.1.2는 "코드가 두 번 이상 쓰이면 인가 서버는 요청을 거부해야 하고, 그 코드로 이미 발급한 토큰들도 취소해야 한다(SHOULD)"고 정한다. Spring Authorization Server가 이것을 따르므로, 코드 재사용과 함께 그 코드로 받은 리프레시 토큰도 무효가 되었다.
+- **해결**: 시험 순서를 바꿔서, 리프레시 교체를 먼저 확인하고 코드 재사용을 마지막에 확인했다(2장 ⑦, ⑧).
+
+### 6. 파일의 줄 끝 문자(CRLF)가 바뀌어 diff가 파일 전체로 잡혔다
+- **문제**: 몇 줄만 고친 Java 파일들이 `git diff`에서 **파일 전체가 바뀐 것**으로 나왔다.
+- **원인**: 이 저장소의 Java, HTML 파일은 Windows 방식의 줄 끝 문자 **CRLF**(`\r\n`, 바이트 `0x0D 0x0A`)를 쓴다. 편집에 쓴 Python 스크립트가 파일을 읽고 쓰면서 줄 끝을 **LF**(`\n`)로 바꿔서, 모든 줄이 바뀐 것으로 보였다.
+  > **줄 끝 문자란?**
+  > 텍스트 파일에서 한 줄이 끝났음을 나타내는 문자다. Windows는 `CR LF` 두 바이트, Linux와 macOS는 `LF` 한 바이트를 쓴다. 눈에는 같아 보이지만 Git은 다른 내용으로 본다.
+- **해결**: 커밋 전에 원래 CRLF였던 파일을 다시 CRLF로 되돌리고, 파일 끝 줄바꿈 유무도 원래대로 맞췄다. 이후 편집은 줄 끝을 유지하는 방식(`newline=''`, CRLF로 쓰기)으로 했다. 커밋 전에 `git diff --stat`으로 바뀐 줄 수가 예상과 맞는지 확인한다.
+
+### 7. 새로 만든 `gradlew`에 실행 권한이 없었다
+- **문제**: accounts 뼈대 커밋에서 `accounts/backend/gradlew`가 `100644`(일반 파일)로 들어갔다. blog의 `gradlew`는 `100755`(실행 가능)다. 이대로 다른 곳에서 받으면 `./gradlew`가 "permission denied"로 실행되지 않는다.
+- **원인**: 저장소가 Windows 파일 시스템(WSL의 `/mnt/c`)에 있어서, 파일을 복사할 때 Linux의 실행 권한 정보가 Git에 반영되지 않았다.
+- **해결**: Git에 실행 권한을 직접 기록했다.
+  ```bash
+  git update-index --chmod=+x accounts/backend/gradlew
+  ```
+  `git ls-files -s accounts/backend/gradlew`로 `100755`인지 확인한다.
+
+## 4. 정리
+| 확인한 것 | 결과 |
+|---|---|
+| OIDC 설정 문서, 공개 키 | 정상. 개인 키 미노출 |
+| 로그인 전 권한 요청 → 로그인 → 원래 요청으로 복귀 → 코드 | 정상. 세션으로 SSO 가능 |
+| `redirect_uri` 검사, PKCE 필수 | 정상 |
+| 코드 → 토큰 교환, Client Secret 검사 | 정상. RS256, `aud=blog` |
+| 리프레시 토큰 교체, 코드 재사용 시 무효화 | 정상 |
+| `/userinfo` | 정상 (`sub`만) |
+| 남은 것 | `sub` 통일과 클레임 추가(1-6), Google 로그인 브라우저 확인, 서명 키·저장소 영속화 |

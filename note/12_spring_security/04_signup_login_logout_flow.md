@@ -10,6 +10,9 @@ tags: [spring-security, filter, form-login, session, http]
 > 이 노트는 **폼 로그인 + 세션 방식, CSRF 켜짐(기본값)** 구성을 기준으로, 사용자가 실제로 겪는 순서대로 요청 하나하나를 따라간다.
 > 각 요청마다 **HTTP 원문 → 거치는 필터 → 컨트롤러/뷰 → 응답 원문** 순서로 적는다.
 
+> **`Location` 헤더 예시에 대해**
+> 이 노트의 `Location: /login` 같은 예시는 **Spring Security가 요청한 값**이다. 실제로 Spring Boot 내장 Tomcat으로 실행하면, `server.tomcat.use-relative-redirects`의 기본값이 `false`라서 Tomcat이 이것을 `Location: http://localhost:8080/login`처럼 **절대 주소로 바꿔서** 응답한다. MockMvc 테스트에서는 Tomcat을 거치지 않으므로 `/login` 그대로 보인다. 자세한 내용은 [accounts 동작 확인과 트러블슈팅](../15_sso/06_accounts_verification_and_troubleshooting.md) 4번.
+
 ## 등장하는 구성 요소
 | 종류 | 이름 | 하는 일 |
 |---|---|---|

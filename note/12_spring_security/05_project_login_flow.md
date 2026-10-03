@@ -10,6 +10,9 @@ tags: [spring-security, project, form-login]
 > 이 노트는 블로그 프로젝트(Spring Boot 4.0.1, Spring Security 7.0.2)에 실제로 작성한 코드가 그 흐름의 어디에 들어가는지 정리한다.
 > 일반적인 흐름과 가장 크게 다른 점은 **CSRF를 껐다는 것**이다.
 
+> **`Location` 헤더 예시에 대해**
+> 이 노트의 `Location: /login` 같은 예시는 **Spring Security가 요청한 값**이다. 실제로 Spring Boot 내장 Tomcat으로 실행하면, `server.tomcat.use-relative-redirects`의 기본값이 `false`라서 Tomcat이 이것을 `Location: http://localhost:8080/login`처럼 **절대 주소로 바꿔서** 응답한다. MockMvc 테스트에서는 Tomcat을 거치지 않으므로 `/login` 그대로 보인다. 자세한 내용은 [accounts 동작 확인과 트러블슈팅](../15_sso/06_accounts_verification_and_troubleshooting.md) 4번.
+
 ## 1. 추가한 파일
 | 분류 | 파일 | 역할 |
 |---|---|---|
