@@ -40,19 +40,22 @@ blog 서버가 직접 하던 로그인(Google 로그인, JWT 발급)을 떼어 �
 | **1단계** accounts 서버 | blog의 로그인 코드를 accounts로 옮기고, 표준 OIDC 인가 서버와 로그인 화면을 만든다 | 완료 | [계획](./03_step1_accounts_server.md), [구현](./04_step1_accounts_implementation.md), [확인·트러블슈팅](./05_step1_accounts_verification_and_troubleshooting.md) |
 | **2단계** blog를 OIDC 클라이언트로 | blog가 로그인을 직접 하지 않고 accounts에 맡긴다 | 완료 | [계획](./06_step2_blog_oidc_client_plan.md), [구현·확인·트러블슈팅](./07_step2_blog_oidc_client.md) |
 | **3단계** blog 화면을 Next.js로 | 임시 Thymeleaf 화면을 Next.js로 바꾼다 | 완료 (브라우저 확인 남음) | [계획](./08_step3_blog_frontend_plan.md), [구현·확인·트러블슈팅](./09_step3_blog_frontend.md) |
-| **4단계** 저장소 분리 | `accounts/`를 새 Git 저장소(`51SB-ANTIMONY/accounts`)로 옮긴다 | 완료 (push 남음) | [계획·결과](./10_step4_repository_split.md) |
-| **5단계** 배포 준비 | accounts와 blog를 운영 환경에서 쓸 수 있게 한다. 미뤄 둔 브라우저 확인 포함 | 예정 | 아래 4장 |
+| **4단계** 저장소 분리 | `accounts/`를 새 Git 저장소(`51SB-ANTIMONY/accounts`)로 옮긴다 | 완료 | [계획·결과](./10_step4_repository_split.md) |
+| **5단계** 운영 준비 | 운영에 필요한 코드와 설정: MySQL, Flyway, 서명 키·토큰·세션 영구 저장, 메일, 환경 변수, HTTPS 대비. 미뤄 둔 브라우저 확인 포함 | 진행 중 | [계획](./11_step5_production_readiness_plan.md) |
+| **6단계** 실제 배포 | 서버, 도메인, HTTPS, CI/CD를 꾸려 실제 주소에서 운영한다 | 예정 | 아래 4장 |
 
-## 4. 5단계 배포 준비 (아직 세부 계획 전)
-| 할 일 | 이유 |
+## 4. 6단계 실제 배포 (아직 세부 계획 전)
+코드와 설정은 5단계에서 준비하고, 6단계에서는 실제로 운영할 곳을 꾸린다.
+
+| 할 일 | 내용 |
 |---|---|
-| 서명 키를 저장해 두고 재사용 | 지금은 서버를 켤 때마다 새로 만들어서, 재시작하면 발급한 토큰을 검증할 수 없다 |
-| 회원, 등록된 앱, 발급한 토큰을 영구 DB에 저장 | 지금은 메모리 DB(H2)라 재시작하면 사라진다 |
-| 인증 메일을 실제로 발송 (SMTP) | 지금은 서버 로그에만 인증번호를 찍는다 |
-| 인증번호 발송 횟수 제한 | 같은 이메일로 메일을 계속 보내게 하는 것을 막으려고 |
-| 실제 주소와 HTTPS (`https://accounts.antimony.kr` 등), `Secure` 쿠키, `X-Forwarded-Proto` 전달 확인 | 지금은 `http://localhost` 기준이다 |
-| 약관, 개인정보 처리방침, 소개 문구 | 화면의 자리 표시 문구를 실제 내용으로 |
-| 브라우저로 화면 확인 | 3단계에서 미뤘다. PC·모바일, 라이트·다크, 로그인 후 돌아오기 |
+| 호스팅 | Spring 서버 2개(accounts, blog), Next.js 2개, MySQL을 어디서 실행할지 (후보: AWS Elastic Beanstalk + RDS, Vercel 등) |
+| 도메인, HTTPS | `accounts.antimony.kr`, `blog.antimony.kr`의 DNS와 인증서 |
+| 비밀 값 | 운영용 Client Secret, 로그인 상태 유지 키, 서명 키, DB 비밀번호를 새로 만들어 환경 변수로 |
+| 메일 서비스 | SMTP 제공자 (Gmail SMTP, AWS SES 등) |
+| Google 로그인 | 운영 주소의 승인된 리디렉션 URI 등록, OAuth 동의 화면 게시 |
+| CI/CD | 저장소마다 GitHub Actions로 테스트, 빌드, 배포 |
+| 화면 문구 | 약관, 개인정보 처리방침, 소개 문구 (내용은 사용자가 쓴다) |
 
 ## 5. 현재 구조 (4단계 이후)
 ```
@@ -81,3 +84,4 @@ blog 서버가 직접 하던 로그인(Google 로그인, JWT 발급)을 떼어 �
 | [08 3단계: blog 화면을 Next.js로 (계획)](./08_step3_blog_frontend_plan.md) | 목적, 세부 단계 3-0~3-7, 수행 방안, 정한 것 |
 | [09 3단계: 구현, 확인, 트러블슈팅](./09_step3_blog_frontend.md) | API 보완, Next.js 뒤에 두기, 화면 구현, Thymeleaf 제거, 확인 결과, 겪은 문제 |
 | [10 4단계: 저장소 분리](./10_step4_repository_split.md) | 목적, 분리 전 점검, 세부 단계 4-1~4-6, 수행 방안, 결과 |
+| [11 5단계: 운영 준비 (계획)](./11_step5_production_readiness_plan.md) | 목적, 정한 것(MySQL, Docker는 나중에), 세부 단계 5-1~5-8, 수행 방안 |

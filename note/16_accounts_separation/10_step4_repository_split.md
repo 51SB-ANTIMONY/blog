@@ -112,7 +112,7 @@ git pull ../blog accounts-only
 ## 6. 남은 것
 | 남은 것 | 하는 사람 |
 |---|---|
-| 새 저장소 `main` push (`cd accounts`, `git push -u origin main`) | 사용자 |
-| blog 저장소 push | 사용자 |
-| `blog/accounts/` 남은 폴더 삭제 (IntelliJ를 닫은 뒤) | 사용자 |
+| ~~새 저장소 `main` push~~ | 완료 (사용자) |
+| ~~blog 저장소 push~~ | 완료 (사용자) |
+| ~~`blog/accounts/` 남은 폴더 삭제~~ | 완료 (IntelliJ를 닫은 뒤 삭제) |
 | IntelliJ에서 새 위치(`Desktop/accounts/backend`)를 프로젝트로 열기 | 사용자 |
