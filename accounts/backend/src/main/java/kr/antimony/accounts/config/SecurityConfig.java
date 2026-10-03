@@ -7,8 +7,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 import static org.springframework.boot.security.autoconfigure.web.servlet.PathRequest.toH2Console;
@@ -38,7 +36,7 @@ public class SecurityConfig {
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login", "/signup", "/user", "/error").permitAll()
+                        .requestMatchers("/login", "/signup", "/user", "/api/signup", "/error").permitAll()
                         .anyRequest().authenticated())
                 // 아이디(uid)와 비밀번호로 로그인 (POST /login)
                 .formLogin(formLogin -> formLogin
@@ -48,10 +46,5 @@ public class SecurityConfig {
                         .loginPage("/login")
                         .userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint.userService(oAuth2UserCustomService)))
                 .build();
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
     }
 }

@@ -11,7 +11,7 @@
 | `backend/` | Spring Boot 인가 서버 | 개발 중 |
 | `frontend/` | Next.js 로그인, 회원가입 화면 | 예정 |
 
-## 현재 상태 (1-3단계)
+## 현재 상태 (1-4단계)
 Spring Authorization Server로 **OpenID Connect 인가 서버**가 되었습니다. 등록된 앱(지금은 `blog`)에 권한 부여 코드 방식으로 ID 토큰, 액세스 토큰, 리프레시 토큰을 발급합니다.
 
 ### 필터 체인
@@ -29,7 +29,23 @@ Spring Authorization Server로 **OpenID Connect 인가 서버**가 되었습니�
 | `GET /oauth2/jwks` | 토큰 서명 검증용 공개 키 |
 | `GET /userinfo` | 사용자 정보 (액세스 토큰 필요) |
 | `GET /login` | 로그인 화면 (아이디·비밀번호, Google) |
-| `GET /signup`, `POST /user` | 회원가입 |
+| `POST /api/signup` | 회원가입 (JSON). 성공 201, 입력값 오류 400, 중복 409 |
+| `GET /signup`, `POST /user` | 회원가입 (임시 화면용 폼. Next.js로 바꾸면 삭제) |
+
+### 회원가입 규칙
+| 필드 | 규칙 |
+|---|---|
+| `uid` (아이디) | 4~20자, 영문 소문자·숫자·밑줄(`_`). 중복 불가 |
+| `email` | 이메일 형식. 중복 불가 |
+| `nickname` | 2~20자. 중복 불가 |
+| `password` | 8~64자. BCrypt로 저장 |
+
+Google로 처음 로그인하면 자동으로 가입됩니다. 아이디는 `google_3f9a2c1b`처럼 자동으로 만들고, 닉네임은 Google 이름으로 정합니다(이미 있으면 뒤에 숫자 4자리). 비밀번호가 없으므로 아이디·비밀번호 로그인은 할 수 없습니다.
+
+에러 응답 형식:
+```json
+{"message": "이미 사용 중인 값이 있습니다.", "errors": {"uid": "이미 사용 중인 아이디입니다."}}
+```
 
 ### 등록된 앱
 | client_id | 인증 방식 | redirect_uri | scope | 토큰 수명 |

@@ -22,9 +22,8 @@ public class User implements UserDetails {
     @Column(name = "id", updatable = false)
     private Long id;
 
-    // 아이디·비밀번호 로그인에서 쓰는 아이디
-    // TODO: 회원가입 로직을 다듬은 뒤 nullable = false, unique = true로 변경
-    @Column(name = "uid")
+    // 아이디·비밀번호 로그인에서 쓰는 아이디. 소셜 로그인으로 가입하면 자동으로 만든다. (예: google_3f9a2c1b)
+    @Column(name = "uid", nullable = false, unique = true)
     private String uid;
 
     @Column(name = "email", nullable = false, unique = true)
