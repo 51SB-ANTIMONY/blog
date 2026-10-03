@@ -67,14 +67,32 @@ if (createButton) {
     });
 }
 
+// 쿠키 값을 읽는 함수
+function getCookie(name) {
+    const found = document.cookie.split('; ').find(part => part.startsWith(name + '='));
+    return found ? decodeURIComponent(found.substring(name.length + 1)) : null;
+}
+
+// CSRF 토큰: XSRF-TOKEN 쿠키 값을 그대로 X-XSRF-TOKEN 헤더에 담는다. 쿠키가 없으면 먼저 발급받는다.
+async function csrfToken() {
+    let token = getCookie('XSRF-TOKEN');
+    if (!token) {
+        await fetch('/api/csrf');
+        token = getCookie('XSRF-TOKEN');
+    }
+    return token;
+}
+
 // HTTP 요청을 보내는 함수
 // 로그인 상태는 세션 쿠키(BLOG_SESSION)로 전달되므로 토큰을 따로 붙이지 않는다.
-function httpRequest(method, url, body, success, fail) {
+async function httpRequest(method, url, body, success, fail) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (method !== 'GET') {
+        headers['X-XSRF-TOKEN'] = await csrfToken();
+    }
     fetch(url, {
         method: method,
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: body,
     }).then(response => {
         if (response.ok) {

@@ -21,6 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -72,6 +73,7 @@ class BlogApiControllerTest {
         // when
         ResultActions result = mockMvc.perform(post(url)
                 .with(loginAs(user))
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
                 .content(requestBody));
 
@@ -137,7 +139,8 @@ class BlogApiControllerTest {
 
         // when
         mockMvc.perform(delete(url, savedArticle.getId())
-                        .with(loginAs(user)))
+                        .with(loginAs(user))
+                        .with(csrf()))
                 .andExpect(status().isNoContent());
 
         // then
@@ -155,6 +158,7 @@ class BlogApiControllerTest {
         // when
         ResultActions result = mockMvc.perform(put(url, savedArticle.getId())
                 .with(loginAs(user))
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
                 .content(objectMapper.writeValueAsString(request)));
 
@@ -194,6 +198,7 @@ class BlogApiControllerTest {
         // when
         ResultActions result = mockMvc.perform(put(url, savedArticle.getId())
                 .with(loginAs(user))
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
                 .content(objectMapper.writeValueAsString(request)));
 
@@ -214,7 +219,8 @@ class BlogApiControllerTest {
 
         // when
         ResultActions result = mockMvc.perform(delete(url, savedArticle.getId())
-                .with(loginAs(user)));
+                .with(loginAs(user))
+                .with(csrf()));
 
         // then
         result.andExpect(status().isForbidden());
@@ -231,6 +237,7 @@ class BlogApiControllerTest {
         // when
         ResultActions result = mockMvc.perform(post(url)
                 .with(loginAs(user))
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
                 .content(requestBody));
 

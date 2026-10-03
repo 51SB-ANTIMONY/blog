@@ -11,6 +11,7 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -55,7 +56,9 @@ class AccountsLoginTest {
     @DisplayName("로그인하지 않은 API 요청은 accounts로 보내지 않고 401로 응답한다.")
     @Test
     void apiWithoutLoginIsUnauthorized() throws Exception {
+        // CSRF 검사가 로그인 검사보다 먼저이므로, 토큰은 넣어서 "로그인 안 됨"만 확인한다.
         mockMvc.perform(post("/api/articles")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"t\",\"content\":\"c\"}"))
                 .andExpect(status().isUnauthorized());

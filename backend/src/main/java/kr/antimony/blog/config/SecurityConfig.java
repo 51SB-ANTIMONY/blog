@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
@@ -32,8 +31,11 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
-                .csrf(AbstractHttpConfigurer::disable)
+                // 로그인 상태를 세션 쿠키로 기억하므로 CSRF 보호가 필요하다.
+                // CSRF 토큰을 XSRF-TOKEN 쿠키로 내려 주고, X-XSRF-TOKEN 헤더 또는 _csrf 폼 값으로 받는다.
+                .csrf(csrf -> csrf.spa())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/csrf").permitAll()
                         .requestMatchers("/new-article", "/api/**").authenticated()
                         .anyRequest().permitAll())
                 // 로그인이 필요하면 accounts로 보낸다. (등록된 로그인 제공자가 accounts 하나뿐이라 바로 이동)
