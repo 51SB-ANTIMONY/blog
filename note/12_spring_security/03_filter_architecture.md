@@ -292,7 +292,7 @@ Location: http://localhost:8080/articles?continue
 `?continue` 파라미터가 붙은 요청이 오면 이 필터가 세션에서 저장된 요청을 꺼내 지우고, 원래 요청 정보로 이어서 처리한다. `continue` 파라미터가 없는 요청에서는 세션을 뒤지지 않아 불필요한 세션 조회를 줄인다.
 
 > **`Location` 헤더 예시에 대해**
-> 이 노트의 `Location: /login` 같은 예시는 **Spring Security가 요청한 값**이다. 실제로 Spring Boot 내장 Tomcat으로 실행하면, `server.tomcat.use-relative-redirects`의 기본값이 `false`라서 Tomcat이 이것을 `Location: http://localhost:8080/login`처럼 **절대 주소로 바꿔서** 응답한다. MockMvc 테스트에서는 Tomcat을 거치지 않으므로 `/login` 그대로 보인다. 자세한 내용은 [accounts 동작 확인과 트러블슈팅](../15_sso/06_accounts_verification_and_troubleshooting.md) 4번.
+> 이 노트의 `Location: /login` 같은 예시는 **Spring Security가 요청한 값**이다. 실제로 Spring Boot 내장 Tomcat으로 실행하면, `server.tomcat.use-relative-redirects`의 기본값이 `false`라서 Tomcat이 이것을 `Location: http://localhost:8080/login`처럼 **절대 주소로 바꿔서** 응답한다. MockMvc 테스트에서는 Tomcat을 거치지 않으므로 `/login` 그대로 보인다. 자세한 내용은 [accounts 동작 확인과 트러블슈팅](../16_accounts_separation/05_step1_accounts_verification_and_troubleshooting.md) 4번.
 
 ## 5. 정리: 요청 하나가 필터를 지나는 모습
 **로그인한 사용자가 `GET /articles`를 요청할 때**

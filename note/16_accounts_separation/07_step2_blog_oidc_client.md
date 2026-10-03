@@ -6,7 +6,7 @@ tags: [oidc, oauth2-client, spring-security, session, csrf, sso]
 
 # blog를 accounts의 OIDC 클라이언트로 바꾸기 (2단계)
 
-> 1단계에서 만든 accounts(인가 서버)는 [accounts 인가 서버 구현 과정](./05_accounts_implementation.md)에 정리했다.
+> 1단계에서 만든 accounts(인가 서버)는 [accounts 인가 서버 구현 과정](./04_step1_accounts_implementation.md)에 정리했다.
 > 이 노트는 blog가 로그인을 직접 처리하지 않고 accounts에 맡기도록 바꾼 과정, 확인 결과, 겪은 문제를 정리한다.
 > Spring Boot 4.0.1, Spring Security 7.0.2 기준이다.
 
@@ -236,7 +236,7 @@ accounts를 켜지 않고 실행한다. 로그인한 상태는 `spring-security-
 | `BlogApiControllerTest` | 글 CRUD, 작성자 = 로그인한 회원, 응답의 `author` = 닉네임, 다른 회원의 글 수정·삭제 403 |
 | `UserServiceTest` | 처음 보는 `sub`면 회원 생성, 같은 `sub`면 같은 회원이고 닉네임 갱신 |
 
-`CsrfTest`에는 `@DirtiesContext(classMode = BEFORE_CLASS)`를 붙였다. 다른 테스트의 `.with(csrf())`는 테스트용 CSRF 저장소로 바꿔 끼우는데, 테스트 클래스들은 Spring 컨텍스트를 함께 쓰므로 그 영향이 남을 수 있다([accounts 트러블슈팅 11](./06_accounts_verification_and_troubleshooting.md)). 새 컨텍스트에서 실행하면 실행 순서와 상관없이 실제 설정을 확인한다.
+`CsrfTest`에는 `@DirtiesContext(classMode = BEFORE_CLASS)`를 붙였다. 다른 테스트의 `.with(csrf())`는 테스트용 CSRF 저장소로 바꿔 끼우는데, 테스트 클래스들은 Spring 컨텍스트를 함께 쓰므로 그 영향이 남을 수 있다([accounts 트러블슈팅 11](./05_step1_accounts_verification_and_troubleshooting.md)). 새 컨텍스트에서 실행하면 실행 순서와 상관없이 실제 설정을 확인한다.
 
 > **`@DirtiesContext`란?**
 > 테스트가 Spring 컨텍스트를 바꿔 놓았으니 다시 쓰지 말라고 표시하는 어노테이션이다. `BEFORE_CLASS`는 이 클래스를 실행하기 전에 컨텍스트를 새로 만들게 한다. 컨텍스트를 새로 만드는 데 시간이 들어서 꼭 필요한 곳에만 쓴다.
@@ -270,7 +270,7 @@ accounts backend(9000), accounts frontend(3001), blog(8080)를 띄우고 `curl`�
 - **원인**: Spring Security는 로그인이 필요할 때 어떻게 응답할지(entry point)를 요청 종류마다 고른다. `oauth2Login()`이 등록하는 "로그인 화면으로 보내기"는 **HTML을 원하는 요청**(`Accept: text/html`)에만 쓰인다. 브라우저는 이 헤더를 보내지만 MockMvc 요청에는 `Accept`가 없다. 그래서 직접 등록한 다른 처리기(401)가 쓰였다.
   > **entry point(`AuthenticationEntryPoint`)란?**
   > 로그인하지 않은 사용자가 로그인이 필요한 주소에 왔을 때 응답을 만드는 객체다. 로그인 화면으로 302를 보내거나, 401을 보낸다.
-- **해결**: 테스트 요청에 `.accept(MediaType.TEXT_HTML)`을 붙였다. 리다이렉트 주소는 MockMvc에서 상대 주소(`/oauth2/authorization/accounts`)로 나온다([accounts 트러블슈팅 4](./06_accounts_verification_and_troubleshooting.md)).
+- **해결**: 테스트 요청에 `.accept(MediaType.TEXT_HTML)`을 붙였다. 리다이렉트 주소는 MockMvc에서 상대 주소(`/oauth2/authorization/accounts`)로 나온다([accounts 트러블슈팅 4](./05_step1_accounts_verification_and_troubleshooting.md)).
 
 ### 2. 로그인하지 않은 API 요청인데 401이 아니라 403
 - **문제**: CSRF 보호를 켜자, 로그인하지 않고 `POST /api/articles`를 보내는 테스트가 403을 받았다.

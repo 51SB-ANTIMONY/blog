@@ -6,7 +6,7 @@ tags: [oidc, authorization-server, pkce, nextjs, testing, troubleshooting]
 
 # accounts 동작 확인과 트러블슈팅 (1-3 ~ 1-7)
 
-> 구현 과정과 코드는 [accounts 인가 서버 구현 과정](./05_accounts_implementation.md)에 정리했다.
+> 구현 과정과 코드는 [accounts 인가 서버 구현 과정](./04_step1_accounts_implementation.md)에 정리했다.
 > 이 노트는 1-3 단계를 마친 뒤 실제로 무엇을 확인했는지, 그 과정에서 어떤 문제를 만나 어떻게 해결했는지 기록한다.
 > 아래의 토큰 값, 시각은 실제로 실행한 결과다. 비밀 값(Client Secret)은 적지 않는다.
 

@@ -320,7 +320,7 @@ PUT /api/articles/{id}
 | 5 | `51e8aa2` | Google OAuth2 + JWT, STATELESS | OAuth2 로그인, 로그인 성공 시 JWT 발급, 글 작성자와 작성자 확인 |
 | 6 | `06cbebc` ~ `8664d11` | **accounts OIDC + 세션** | 로그인을 accounts에 맡김. Google 로그인, JWT 코드 삭제. `sub`로 회원 연결, CSRF, 전체 로그아웃 |
 
-6단계의 자세한 과정은 [note/15_sso/07](../note/15_sso/07_blog_oidc_client.md)에 정리했습니다.
+6단계의 자세한 과정은 [note/16_accounts_separation/07](../note/16_accounts_separation/07_step2_blog_oidc_client.md)에 정리했습니다.
 
 ## 로컬 실행 방법
 
@@ -455,7 +455,8 @@ accounts를 켜지 않아도 됩니다. 로그인한 상태는 `spring-security-
 | Spring Security, 필터 체인 | [`12_spring_security`](../note/12_spring_security) |
 | JWT, 리프레시 토큰 | [`13_jwt`](../note/13_jwt) |
 | OAuth 2.0, 쿠키, Client ID/Secret | [`14_oauth`](../note/14_oauth) |
-| SSO, OIDC, accounts, blog를 OIDC 클라이언트로 | [`15_sso`](../note/15_sso) |
+| SSO, OIDC 개념과 설계 | [`15_sso`](../note/15_sso) |
+| accounts 분리 (단계별 목적, 계획, 구현, 트러블슈팅) | [`16_accounts_separation`](../note/16_accounts_separation) |
 
 ## 개선 예정
 - [x] 글 CRUD REST API

@@ -6,8 +6,8 @@ tags: [oidc, authorization-server, spring-security, nextjs, implementation]
 
 # accounts 인가 서버 구현 과정 (1-1 ~ 1-7)
 
-> 개념은 [인가 서버와 Spring Authorization Server](./04_spring_authorization_server.md), 설계는 [antimony.kr 통합 로그인 설계](./02_antimony_accounts_design.md)에 정리했다.
-> 이 노트는 실제로 만든 과정과 코드를 정리한다. 동작 확인 결과와 겪은 문제는 [accounts 동작 확인과 트러블슈팅](./06_accounts_verification_and_troubleshooting.md)에 있다.
+> 개념은 [인가 서버와 Spring Authorization Server](../15_sso/04_spring_authorization_server.md), 설계는 [antimony.kr 통합 로그인 설계](../15_sso/02_antimony_accounts_design.md)에 정리했다.
+> 이 노트는 실제로 만든 과정과 코드를 정리한다. 동작 확인 결과와 겪은 문제는 [accounts 동작 확인과 트러블슈팅](./05_step1_accounts_verification_and_troubleshooting.md)에 있다.
 > Spring Boot 4.0.1, Spring Security 7.0.2 기준이다.
 
 ## 1. 전체 순서
@@ -193,7 +193,7 @@ return new InMemoryRegisteredClientRepository(blog);
 | `redirectUri` | `http://localhost:8080/login/oauth2/code/accounts` | blog가 2단계에서 쓸 주소. Spring Security 클라이언트의 기본 형식 `{baseUrl}/login/oauth2/code/{registrationId}` |
 | `scope` | `openid`, `profile`, `email` | |
 | `requireAuthorizationConsent(false)` | 동의 화면 생략 | 자사 앱이므로 |
-| `requireProofKey(true)` | PKCE 필수 | Spring Security 7 인가 서버의 기본값을 명시 ([트러블슈팅](./06_accounts_verification_and_troubleshooting.md) 2번) |
+| `requireProofKey(true)` | PKCE 필수 | Spring Security 7 인가 서버의 기본값을 명시 ([트러블슈팅](./05_step1_accounts_verification_and_troubleshooting.md) 2번) |
 | 액세스 토큰 수명 | 30분 | |
 | 리프레시 토큰 수명 | 14일 | |
 | `reuseRefreshTokens(false)` | 재발급할 때마다 리프레시 토큰도 교체 | [리프레시 토큰](../13_jwt/06_refresh_token.md) 5장의 교체(Rotation) |
@@ -327,7 +327,7 @@ blog 트러블슈팅 9번(이름이 같은 Google 사용자가 가입하면 `nic
 1-4까지는 Google 회원을 **이메일**로 찾았다. 두 가지 문제가 있었다.
 | 문제 | 설명 |
 |---|---|
-| 자동 계정 합치기 | 아이디로 `a@gmail.com`을 가입한 회원이 있으면, 같은 이메일의 Google 계정으로 로그인한 사람이 **그 회원으로 로그인**된다. 이메일이 같다는 것만으로 같은 사람이라고 확신할 수 없다([antimony.kr 통합 로그인 설계](./02_antimony_accounts_design.md) 5장) |
+| 자동 계정 합치기 | 아이디로 `a@gmail.com`을 가입한 회원이 있으면, 같은 이메일의 Google 계정으로 로그인한 사람이 **그 회원으로 로그인**된다. 이메일이 같다는 것만으로 같은 사람이라고 확신할 수 없다([antimony.kr 통합 로그인 설계](../15_sso/02_antimony_accounts_design.md) 5장) |
 | 이메일 변경 | Google 계정의 이메일이 바뀌면 같은 사람인데도 다른 회원으로 취급된다 |
 
 대형 서비스처럼 **"계정"(users)과 "로그인 수단"(user_identities)을 나누고**, 소셜 계정은 제공자가 주는 **변하지 않는 계정 고유 번호(`sub`)**로 구별하도록 바꿨다.
@@ -585,7 +585,7 @@ accounts/frontend/
 ## 12. 아직 남은 것
 | 남은 것 | 단계 |
 |---|---|
-| ~~blog를 accounts의 OIDC 앱(클라이언트)으로 바꾸기~~ | 2단계 완료: [blog를 accounts의 OIDC 클라이언트로 바꾸기](./07_blog_oidc_client.md) |
+| ~~blog를 accounts의 OIDC 앱(클라이언트)으로 바꾸기~~ | 2단계 완료: [blog를 accounts의 OIDC 클라이언트로 바꾸기](./07_step2_blog_oidc_client.md) |
 | 카카오·네이버 등록 | 이후 |
 | 서명 키 저장, 앱 등록 정보·발급 토큰·회원을 영구 DB에 저장 | 배포 전 |
 | 약관 내용, 왼쪽 소개 문구 | 배포 전 |
