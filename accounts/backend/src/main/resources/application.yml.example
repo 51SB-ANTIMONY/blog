@@ -30,10 +30,10 @@ spring:
               - email
               - profile
 
-jwt:
-  issuer: <발급자 문자열>
-  secret_key: <blog와 같은 값. Base64로 인코딩한 32바이트 이상의 난수>
-
 accounts:
-  # Google 로그인 성공 후 토큰을 붙여 보낼 주소 (1-2 단계 임시 동작)
-  login-success-redirect-url: http://localhost:8080/articles
+  # 인가 서버의 주소. 토큰의 iss 클레임과 설정 문서(/.well-known/openid-configuration)에 들어간다.
+  issuer: http://localhost:9000
+  clients:
+    blog:
+      client-secret: <blog 클라이언트의 Client Secret. blog 서버 설정과 같은 값>
+      redirect-uri: http://localhost:8080/login/oauth2/code/accounts

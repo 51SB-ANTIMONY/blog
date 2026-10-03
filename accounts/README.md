@@ -11,18 +11,38 @@
 | `backend/` | Spring Boot 인가 서버 | 개발 중 |
 | `frontend/` | Next.js 로그인, 회원가입 화면 | 예정 |
 
-## 현재 상태 (1-2단계)
-blog 서버의 인증 코드(Google 로그인, JWT 발급과 재발급, 회원)를 **그대로 복사**한 상태입니다. 패키지 이름만 `kr.antimony.accounts`로 바꿨고, 로그인 성공 후 이동할 주소(`accounts.login-success-redirect-url`)를 설정으로 뺐습니다.
+## 현재 상태 (1-3단계)
+Spring Authorization Server로 **OpenID Connect 인가 서버**가 되었습니다. 등록된 앱(지금은 `blog`)에 권한 부여 코드 방식으로 ID 토큰, 액세스 토큰, 리프레시 토큰을 발급합니다.
 
-- 아직 OpenID Connect 인가 서버가 아니며, blog의 Google 로그인을 그대로 떼어 낸 "토큰 발급 서버"입니다.
-- 다음 단계에서 토큰 처리를 Spring Authorization Server로 교체합니다.
+### 필터 체인
+| 순서 | 체인 | 담당 주소 | 인증 |
+|---|---|---|---|
+| 1 | 인가 서버 (`AuthorizationServerConfig`) | `/oauth2/**`, `/.well-known/**`, `/userinfo`, `/connect/**` | 앱: Client Secret / `/userinfo`: 액세스 토큰. 로그인 안 된 브라우저 요청은 `/login`으로 |
+| 2 | 로그인 (`SecurityConfig`) | 그 외 전부 | 아이디(`uid`)·비밀번호 폼 로그인, Google 로그인. 세션, CSRF 보호 |
 
-| 기능 | 주소 |
+### 주요 주소
+| 주소 | 설명 |
 |---|---|
-| 로그인 화면 | `GET /login` |
-| Google 로그인 시작 | `GET /oauth2/authorization/google` |
-| 액세스 토큰 재발급 | `POST /api/token` |
-| 회원가입 (폼) | `GET /signup`, `POST /user` |
+| `GET /.well-known/openid-configuration` | 설정 문서 |
+| `GET /oauth2/authorize` | 권한 요청 (PKCE 필수) |
+| `POST /oauth2/token` | 코드 → 토큰 교환, 리프레시 토큰으로 재발급 |
+| `GET /oauth2/jwks` | 토큰 서명 검증용 공개 키 |
+| `GET /userinfo` | 사용자 정보 (액세스 토큰 필요) |
+| `GET /login` | 로그인 화면 (아이디·비밀번호, Google) |
+| `GET /signup`, `POST /user` | 회원가입 |
+
+### 등록된 앱
+| client_id | 인증 방식 | redirect_uri | scope | 토큰 수명 |
+|---|---|---|---|---|
+| `blog` | `client_secret_basic` + PKCE | `http://localhost:8080/login/oauth2/code/accounts` | `openid`, `profile`, `email` | 액세스 30분, 리프레시 14일 (재발급 시 교체) |
+
+자사 앱이므로 동의 화면은 생략합니다.
+
+### 아직 남은 것
+- ID 토큰의 `sub`가 로그인 방식에 따라 다릅니다. 아이디 로그인은 `uid`, Google 로그인은 Google의 `sub`입니다. 회원 id로 통일하고 `nickname`, `email` 클레임을 추가합니다.
+- 토큰 서명 키를 서버를 시작할 때마다 새로 만들어서, 재시작하면 기존 토큰을 검증할 수 없습니다.
+- 등록된 앱, 발급한 토큰은 메모리에 저장합니다. 재시작하면 사라집니다.
+- 화면은 임시로 Thymeleaf를 쓰며, Next.js로 바꿀 예정입니다.
 
 ## 로컬 실행
 
@@ -32,7 +52,7 @@ blog 서버의 인증 코드(Google 로그인, JWT 발급과 재발급, 회원)�
 ### 설정 파일
 `backend/src/main/resources/application.yml`은 비밀 값이 들어가므로 Git에서 제외되어 있습니다. 같은 폴더의 `application.yml.example`을 복사해서 만들어 주세요.
 
-- `jwt.secret_key`: blog 서버가 accounts가 발급한 토큰을 검증할 수 있도록 **blog와 같은 값**을 넣습니다.
+- `accounts.clients.blog.client-secret`: blog 앱의 Client Secret. blog 서버 설정에도 같은 값을 넣습니다.
 - Google Cloud Console의 OAuth 클라이언트에 승인된 리디렉션 URI `http://localhost:9000/login/oauth2/code/google`을 추가해야 합니다.
 
 ### 실행
