@@ -1,8 +1,5 @@
 package kr.antimony.blog.config;
 
-import kr.antimony.blog.domain.User;
-import kr.antimony.blog.repository.BlogRepository;
-import kr.antimony.blog.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,13 +13,10 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -34,21 +28,6 @@ class AccountsLoginTest {
 
     @Autowired
     ClientRegistrationRepository clientRegistrationRepository;
-
-    @Autowired
-    BlogRepository blogRepository;
-
-    @Autowired
-    UserRepository userRepository;
-
-    @DisplayName("로그인이 필요한 화면을 브라우저로 열면 accounts 로그인 시작 주소로 보낸다.")
-    @Test
-    void loginRequiredPageRedirectsToAccounts() throws Exception {
-        // 브라우저처럼 HTML을 원하는 요청이어야 로그인 화면으로 보낸다. (Accept가 없으면 401)
-        mockMvc.perform(get("/new-article").accept(MediaType.TEXT_HTML))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/oauth2/authorization/accounts"));
-    }
 
     @DisplayName("로그인 시작: accounts의 권한 요청 주소로 보낸다. client_id, 범위, PKCE, nonce가 들어 있다.")
     @Test
@@ -139,29 +118,5 @@ class AccountsLoginTest {
                 .isEqualTo("http://localhost:3001/connect/logout");
         assertThat(uri.getQueryParams().getFirst("id_token_hint")).isNotBlank();
         assertThat(uri.getQueryParams().getFirst("post_logout_redirect_uri")).isEqualTo("http://localhost/");
-    }
-
-    @DisplayName("첫 주소(/)는 글 목록으로 보낸다. accounts에서 로그아웃한 뒤 돌아오는 곳이다.")
-    @Test
-    void homeRedirectsToArticles() throws Exception {
-        mockMvc.perform(get("/"))
-                .andExpect(redirectedUrl("/articles"));
-    }
-
-    @DisplayName("글 목록: 로그인 전에는 로그인 버튼, 로그인 후에는 닉네임과 로그아웃 버튼을 보여 준다.")
-    @Test
-    void articleListShowsLoginState() throws Exception {
-        blogRepository.deleteAll();
-        userRepository.deleteAll();
-        userRepository.save(User.builder().accountsSub("1001").nickname("작성자").build());
-
-        mockMvc.perform(get("/articles"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("/oauth2/authorization/accounts")));
-
-        mockMvc.perform(get("/articles").with(oidcLogin().idToken(token -> token.subject("1001"))))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("작성자님")))
-                .andExpect(content().string(containsString("로그아웃")));
     }
 }

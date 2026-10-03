@@ -18,6 +18,7 @@ import static org.springframework.boot.security.autoconfigure.web.servlet.PathRe
 
 // 로그인은 accounts(OIDC 인가 서버)에 맡긴다.
 // accounts에서 로그인하고 돌아오면 blog는 세션(BLOG_SESSION 쿠키)으로 로그인 상태를 기억한다.
+// 화면은 blog frontend(Next.js)가 그리고, 이 서버는 API와 로그인·로그아웃 처리만 맡는다.
 @RequiredArgsConstructor
 @Configuration
 public class SecurityConfig {
@@ -28,8 +29,7 @@ public class SecurityConfig {
     @Bean
     public WebSecurityCustomizer configure() {
         return (web) -> web.ignoring()
-                .requestMatchers(toH2Console())
-                .requestMatchers("/css/**", "/js/**");
+                .requestMatchers(toH2Console());
     }
 
     @Bean
@@ -42,7 +42,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/csrf").permitAll()
                         // 글 읽기는 누구나. 쓰기, 수정, 삭제는 로그인 필요
                         .requestMatchers(HttpMethod.GET, "/api/articles", "/api/articles/*").permitAll()
-                        .requestMatchers("/new-article", "/api/**").authenticated()
+                        .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 // 로그인이 필요하면 accounts로 보낸다. (등록된 로그인 제공자가 accounts 하나뿐이라 바로 이동)
                 .oauth2Login(oauth2 -> oauth2
@@ -60,7 +60,7 @@ public class SecurityConfig {
                 .build();
     }
 
-    // accounts의 /connect/logout?id_token_hint=...&post_logout_redirect_uri=http://localhost:8080/ 로 보낸다.
+    // accounts의 /connect/logout?id_token_hint=...&post_logout_redirect_uri=http://localhost:3000/ 로 보낸다.
     // post_logout_redirect_uri는 accounts에 등록한 주소와 같아야 한다.
     private OidcClientInitiatedLogoutSuccessHandler accountsLogoutSuccessHandler() {
         OidcClientInitiatedLogoutSuccessHandler handler =
