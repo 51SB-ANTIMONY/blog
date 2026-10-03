@@ -40,7 +40,7 @@ blog 서버가 직접 하던 로그인(Google 로그인, JWT 발급)을 떼어 �
 | **1단계** accounts 서버 | blog의 로그인 코드를 accounts로 옮기고, 표준 OIDC 인가 서버와 로그인 화면을 만든다 | 완료 | [계획](./03_step1_accounts_server.md), [구현](./04_step1_accounts_implementation.md), [확인·트러블슈팅](./05_step1_accounts_verification_and_troubleshooting.md) |
 | **2단계** blog를 OIDC 클라이언트로 | blog가 로그인을 직접 하지 않고 accounts에 맡긴다 | 완료 | [계획](./06_step2_blog_oidc_client_plan.md), [구현·확인·트러블슈팅](./07_step2_blog_oidc_client.md) |
 | **3단계** blog 화면을 Next.js로 | 임시 Thymeleaf 화면을 Next.js로 바꾼다 | 완료 (브라우저 확인 남음) | [계획](./08_step3_blog_frontend_plan.md), [구현·확인·트러블슈팅](./09_step3_blog_frontend.md) |
-| **4단계** 저장소 분리 | `accounts/`를 새 Git 저장소(`51SB-ANTIMONY/accounts`)로 옮긴다 | 진행 중 | [계획·결과](./10_step4_repository_split.md) |
+| **4단계** 저장소 분리 | `accounts/`를 새 Git 저장소(`51SB-ANTIMONY/accounts`)로 옮긴다 | 완료 (push 남음) | [계획·결과](./10_step4_repository_split.md) |
 | **5단계** 배포 준비 | accounts와 blog를 운영 환경에서 쓸 수 있게 한다. 미뤄 둔 브라우저 확인 포함 | 예정 | 아래 4장 |
 
 ## 4. 5단계 배포 준비 (아직 세부 계획 전)
@@ -54,16 +54,16 @@ blog 서버가 직접 하던 로그인(Google 로그인, JWT 발급)을 떼어 �
 | 약관, 개인정보 처리방침, 소개 문구 | 화면의 자리 표시 문구를 실제 내용으로 |
 | 브라우저로 화면 확인 | 3단계에서 미뤘다. PC·모바일, 라이트·다크, 로그인 후 돌아오기 |
 
-## 5. 현재 구조 (3단계 이후)
+## 5. 현재 구조 (4단계 이후)
 ```
 브라우저
-  ├─ localhost:3000  blog frontend (Next.js)        홈, 글 상세, 글 쓰기·수정
+  ├─ localhost:3000  blog frontend (Next.js)        홈, 글 상세, 글 쓰기·수정          ← blog 저장소
   │        │ rewrites: /api/**, /oauth2/**, /login/oauth2/**, /logout
   │        ▼
   │   localhost:8080  blog backend (Spring)          글 API, 로그인 처리, 세션 BLOG_SESSION, CSRF
   │        │ 서버끼리: 토큰 교환, 공개 키
   │        ▼
-  │   localhost:9000  accounts backend (Spring Authorization Server)
+  │   localhost:9000  accounts backend (Spring Authorization Server)   ← accounts 저장소
   │        ▲ rewrites
   └─ localhost:3001  accounts frontend (Next.js)    로그인, 회원가입, 내 계정
 ```
