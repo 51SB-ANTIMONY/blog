@@ -21,7 +21,10 @@ spring:
 
 # 로그인을 맡기는 인가 서버(accounts). blog는 여기에 등록된 OIDC 클라이언트다.
 accounts:
+  # 브라우저가 가는 주소 (accounts 화면). ID 토큰의 iss와 같아야 한다.
   issuer: http://localhost:3001
+  # blog 서버가 직접 부르는 주소 (토큰 교환, 서명 공개 키). 없으면 issuer를 쓴다.
+  backchannel-uri: http://localhost:9000
   client-id: blog
   # accounts의 accounts.clients.blog.client-secret과 같은 값
   client-secret: <blog client secret>

@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.util.UriComponents;
@@ -67,6 +68,19 @@ class AccountsLoginTest {
         assertThat(uri.getQueryParams().getFirst("code_challenge_method")).isEqualTo("S256");
         assertThat(uri.getQueryParams().getFirst("state")).isNotBlank();
         assertThat(uri.getQueryParams().getFirst("nonce")).isNotBlank();
+    }
+
+    @DisplayName("주소: 브라우저가 가는 주소는 issuer(3001), blog 서버가 직접 부르는 주소는 backchannel-uri(9000)")
+    @Test
+    void frontAndBackChannelUris() {
+        ClientRegistration.ProviderDetails provider =
+                clientRegistrationRepository.findByRegistrationId("accounts").getProviderDetails();
+
+        assertThat(provider.getIssuerUri()).isEqualTo("http://localhost:3001");
+        assertThat(provider.getAuthorizationUri()).isEqualTo("http://localhost:3001/oauth2/authorize");
+        assertThat(provider.getConfigurationMetadata().get("end_session_endpoint")).isEqualTo("http://localhost:3001/connect/logout");
+        assertThat(provider.getTokenUri()).isEqualTo("http://localhost:9000/oauth2/token");
+        assertThat(provider.getJwkSetUri()).isEqualTo("http://localhost:9000/oauth2/jwks");
     }
 
     @DisplayName("로그인하지 않은 API 요청은 accounts로 보내지 않고 401로 응답한다.")
