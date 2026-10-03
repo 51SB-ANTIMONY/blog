@@ -1,7 +1,7 @@
 # Blog Backend
 
 블로그 서비스의 백엔드 서버입니다. Spring Boot로 만든 REST API를 제공하고, 화면은 [blog frontend](../frontend)(Next.js)가 그립니다.
-로그인은 antimony.kr 통합 로그인 서버인 **[accounts](../accounts)에 맡깁니다(OpenID Connect).** blog는 accounts에 등록된 OIDC 클라이언트이고, accounts에서 로그인하고 돌아오면 **세션**(`BLOG_SESSION` 쿠키)으로 로그인 상태를 기억합니다. 토큰은 브라우저에 두지 않습니다.
+로그인은 antimony.kr 통합 로그인 서버인 **[accounts](https://github.com/51SB-ANTIMONY/accounts)에 맡깁니다(OpenID Connect).** blog는 accounts에 등록된 OIDC 클라이언트이고, accounts에서 로그인하고 돌아오면 **세션**(`BLOG_SESSION` 쿠키)으로 로그인 상태를 기억합니다. 토큰은 브라우저에 두지 않습니다.
 프로젝트 전체 소개는 [루트 README](../README.md)를 참고해 주세요.
 
 ## 목차
@@ -321,7 +321,7 @@ PUT /api/articles/{id}
 
 ### 필요 환경
 - JDK 25
-- [accounts](../accounts) 실행 (backend `localhost:9000`, frontend `localhost:3001`). blog는 accounts 없이도 켜지지만, 로그인하려면 필요합니다.
+- [accounts](https://github.com/51SB-ANTIMONY/accounts) 실행 (backend `localhost:9000`, frontend `localhost:3001`). blog는 accounts 없이도 켜지지만, 로그인하려면 필요합니다.
 
 ### 설정 파일
 `src/main/resources/application.yml`은 비밀 값이 들어 있어 Git에서 제외되어 있습니다. 같은 폴더의 `application.yml.example`을 복사해서 만들어 주세요.

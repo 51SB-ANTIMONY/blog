@@ -15,7 +15,7 @@ Spring Boot 백엔드와 별도의 프론트엔드로 구성된 개인 블로그
 | 기능 | 설명 | 상태 |
 |---|---|---|
 | 글 관리 | 글 작성, 목록 조회, 상세 조회, 수정, 삭제 | 구현 완료 |
-| 통합 로그인 (SSO) | antimony.kr 통합 로그인 서버 [accounts](./accounts)에 로그인을 맡김 (OpenID Connect). 아이디·비밀번호, Google 로그인 | 구현 완료 (로컬) |
+| 통합 로그인 (SSO) | antimony.kr 통합 로그인 서버 [accounts](https://github.com/51SB-ANTIMONY/accounts)에 로그인을 맡김 (OpenID Connect). 아이디·비밀번호, Google 로그인 | 구현 완료 (로컬) |
 | 로그인 상태 | accounts에서 돌아오면 blog 세션으로 기억. 토큰은 브라우저에 두지 않음 | 구현 완료 |
 | 글 작성 권한 | 로그인한 사용자만 글 작성, 작성자만 수정·삭제 | 구현 완료 |
 | 로그아웃 | blog 세션과 accounts 로그인을 함께 종료 | 구현 완료 |
@@ -54,5 +54,9 @@ GitHub ── push ──▶ GitHub Actions ── 빌드·배포 ──▶ Elas
 |---|---|
 | [`backend/`](./backend) | Spring Boot REST API 서버. API 명세, 인증 흐름, 실행 방법은 [backend/README.md](./backend/README.md) 참고 |
 | [`frontend/`](./frontend) | 블로그 화면 (Next.js). 홈, 글 상세, 글 쓰기·수정. 실행 방법은 [frontend/README.md](./frontend/README.md) 참고 |
-| [`accounts/`](./accounts) | antimony.kr 통합 로그인 서버 (OIDC 인가 서버 + 로그인 화면). 나중에 별도 저장소로 분리 |
 | [`note/`](./note) | 프로젝트를 만들며 공부한 내용 정리 |
+
+## 관련 저장소
+| 저장소 | 내용 |
+|---|---|
+| [accounts](https://github.com/51SB-ANTIMONY/accounts) | antimony.kr 통합 로그인 서버 (OIDC 인가 서버 + 로그인 화면). 이 저장소의 `accounts/` 폴더에서 시작해 분리했다 |
