@@ -27,7 +27,51 @@ tags: [oidc, oauth2-client, spring-security, session, csrf, sso]
 > **BFF(Backend For Frontend)란?**
 > 인가 서버에서 받은 토큰을 브라우저가 아니라 서버(blog backend)가 가지고 있는 방식이다. 브라우저에는 서버와의 세션 쿠키만 있다. JavaScript가 토큰을 읽을 수 없으므로, 화면에 악성 스크립트가 들어와도 토큰을 가져가지 못한다.
 
-## 2. 순서와 커밋
+## 2. blog의 JWT를 지운 이유
+2단계에서 blog가 직접 JWT를 만들고 검사하던 코드(`TokenProvider`, `TokenAuthenticationFilter`, 리프레시 토큰, 재발급 API, `jjwt`)를 지웠다. 하지만 **시스템에서 JWT가 사라진 것은 아니다.** JWT를 만드는 곳이 blog에서 accounts로 옮겨 갔다.
+
+### 지운 것과 남은 것
+| 구분 | 내용 | 상태 |
+|---|---|---|
+| blog가 발급하던 JWT | `TokenProvider`(HS256 서명), 액세스 토큰(1일), 리프레시 토큰(14일)과 `refresh_token` 테이블, 재발급 API(`/api/token`), `TokenAuthenticationFilter` | 삭제 |
+| accounts가 발급하는 JWT | ID 토큰, 액세스 토큰. RS256으로 서명하고, 검증용 공개 키는 `/oauth2/jwks`에 공개 | 사용 중 |
+| blog의 JWT 검증 | accounts가 준 ID 토큰의 서명, `iss`, `aud`, `exp`, `nonce` 검사 | 사용 중 (Spring Security가 처리하므로 직접 짠 코드는 없음) |
+
+blog는 JWT를 **만드는 쪽**에서 **검사하는 쪽**으로 바뀌었다.
+
+### 이유 1: 로그인을 accounts가 맡게 되었다
+예전에는 blog가 로그인을 직접 처리했으므로, "이 사람이 로그인했다"는 증명(JWT)도 blog가 만들어야 했다. 이제는 accounts가 로그인을 처리하고, 그 결과로 **ID 토큰**을 blog에 준다. 로그인했다는 증명을 accounts가 만들어 주므로 blog가 따로 만들 필요가 없다.
+
+> **ID 토큰이란?**
+> 로그인이 끝났을 때 인가 서버(accounts)가 앱(blog)에 주는 JWT다. 누가(`sub`), 언제, 어느 앱을 위해(`aud`) 로그인했는지가 들어 있다.
+
+### 이유 2: 로그인한 뒤에는 세션을 쓴다
+blog는 ID 토큰을 **로그인할 때 한 번만** 검사한다. 그 뒤로는 서버 세션에 로그인 정보를 저장하고, 브라우저는 세션 쿠키(`BLOG_SESSION`)만 보낸다. 매 요청마다 토큰을 보내고 검사하는 과정이 없으므로, blog가 자기 토큰을 발급하고 재발급할 이유도 없다.
+
+이 방식은 토큰을 브라우저에 두지 않는다는 결정(BFF)과도 맞다. 예전 방식은 액세스 토큰을 `localStorage`에, 리프레시 토큰을 JavaScript가 읽을 수 있는 쿠키에 두어서, 화면에 악성 스크립트가 들어오면 토큰을 가져갈 수 있었다. blog README 트러블슈팅의 5번(로그아웃해도 토큰이 남음), 7번(토큰이 URL과 쿠키로 노출), 10번(토큰 유효 시간이 경로마다 다름)이 모두 blog의 자체 JWT에서 생긴 문제였고, 이번 변경으로 해결됐다.
+
+### 토큰 형식과는 상관없다
+"accounts가 JWT로 발급하니까 blog의 JWT가 필요 없다"는 절반만 맞다. 지운 이유는 토큰 **형식**이 아니라, 토큰을 **발급하는 역할**이 accounts로 옮겨 갔기 때문이다.
+
+| accounts가 주는 것 | 형식 | blog의 사용 |
+|---|---|---|
+| ID 토큰 | 항상 JWT (OIDC 규칙) | 로그인할 때 한 번 검사 → 회원 확인 |
+| 액세스 토큰 | JWT (Spring Authorization Server 기본값. 설정에 따라 JWT가 아닌 형식도 가능) | 쓰지 않음 |
+
+accounts가 액세스 토큰을 JWT가 아닌 형식으로 바꾸더라도 blog는 그대로 동작한다. blog가 쓰는 것은 ID 토큰뿐이고, ID 토큰은 언제나 JWT이기 때문이다.
+
+> **액세스 토큰과 ID 토큰의 차이**
+> ID 토큰은 "누가 로그인했는지"를 앱에 알려 주는 토큰이다. 액세스 토큰은 "이 토큰을 가진 쪽이 API를 써도 된다"는 허가증으로, API 서버에 보내는 용도다. blog는 다른 서버의 API를 부르지 않으므로 액세스 토큰을 받기만 하고 쓰지 않는다.
+
+### JWT로 API를 부르는 방식이 다시 필요해지면
+모바일 앱이나 다른 서버가 blog API를 직접 부르게 되면, 요청에 토큰을 붙이는 방식이 다시 필요하다. 이때는 예전처럼 blog가 JWT를 만들지 않고, **accounts가 발급한 액세스 토큰을 blog가 검사**하게 한다(Spring Security의 Resource Server). 토큰 발급은 계속 accounts 한곳에서 관리된다.
+
+> **Resource Server란?**
+> 요청에 붙어 온 액세스 토큰(`Authorization: Bearer ...`)을 검사해서 API를 허용하는 서버다. 토큰을 만들지는 않고, 인가 서버의 공개 키로 서명만 확인한다.
+
+예전 코드는 Git 기록(`77e2349` TokenProvider·재발급 API, `51e8aa2` Google 로그인 + JWT)과 [JWT 노트](../13_jwt)에 남아 있다.
+
+## 3. 순서와 커밋
 
 | 단계 | 커밋 | 내용 |
 |---|---|---|
@@ -40,7 +84,7 @@ tags: [oidc, oauth2-client, spring-security, session, csrf, sso]
 
 처음 계획은 "accounts 등록 → 회원 연결 → … → 마지막에 옛 코드 삭제"였다. 실제로는 2-1에서 **등록과 삭제를 한 커밋에** 했다. 옛 `OAuth2SuccessHandler`가 `@Component`라서, 보안 설정에서 빼도 Spring이 계속 만들려고 했고, 그러려면 함께 지울 쿠키 저장소 빈이 필요했다. 옛 코드를 남겨 둔 채로는 서버가 켜지지 않으므로, "교체"를 한 단위로 묶었다.
 
-## 3. 2-1: accounts를 로그인 제공자로 등록
+## 4. 2-1: accounts를 로그인 제공자로 등록
 
 ### 지운 것
 | 지운 코드 | 하던 일 | 이제 누가 하나 |
@@ -103,7 +147,7 @@ blog는 Client Secret을 가진 클라이언트(confidential client)다. Spring 
 > **PKCE란?**
 > 로그인을 시작할 때 무작위 값(`code_verifier`)을 만들어 그 해시(`code_challenge`)만 인가 서버에 보내고, 나중에 code를 토큰으로 바꿀 때 원래 값을 보내는 방식이다. 중간에서 code를 가로챈 사람은 원래 값을 모르므로 토큰을 받을 수 없다. accounts는 1-3부터 PKCE가 없는 요청을 거절한다.
 
-## 4. 2-2: blog 회원을 `sub`로 연결
+## 5. 2-2: blog 회원을 `sub`로 연결
 
 ### `users` 테이블
 ```
@@ -144,7 +188,7 @@ private User author;
 
 작성자 확인은 로그인한 사용자의 이름(`sub`)과 글 작성자의 `accountsSub`를 비교한다.
 
-## 5. 2-3: CSRF 보호 켜기
+## 6. 2-3: CSRF 보호 켜기
 
 바꾸기 전에는 로그인 정보가 `Authorization` 헤더에 있었다. 브라우저는 이 헤더를 자동으로 붙이지 않으므로 CSRF 공격이 통하지 않아서 꺼 두었다. 이제는 세션 쿠키로 로그인하고, 쿠키는 브라우저가 자동으로 붙이므로 다시 켜야 한다.
 
@@ -159,7 +203,7 @@ accounts와 같은 방식(`csrf.spa()`)을 썼다.
 > **다른 사이트는 왜 이 값을 붙일 수 없나**
 > 브라우저는 다른 사이트의 JavaScript가 이 사이트의 쿠키를 읽지 못하게 막는다. 쿠키를 읽을 수 있는 것은 같은 사이트의 화면뿐이므로, 헤더에 쿠키와 같은 값이 들어 있으면 이 사이트 화면에서 보낸 요청이다.
 
-## 6. 2-4: 로그아웃
+## 7. 2-4: 로그아웃
 
 blog 세션만 지우면 accounts의 로그인은 남는다. 그 상태에서 다시 로그인을 누르면 accounts가 비밀번호를 묻지 않고 바로 code를 돌려주므로(SSO), 사용자 입장에서는 로그아웃이 안 된 것처럼 보인다.
 
@@ -177,7 +221,7 @@ POST /logout
 
 `/`에는 화면이 없어서 `/articles`로 보내는 주소를 추가했다. 글 목록에는 로그인 전에는 로그인 버튼, 후에는 닉네임과 로그아웃 버튼을 보여 준다.
 
-## 7. 확인
+## 8. 확인
 
 ### 자동 테스트 (20개 통과)
 accounts를 켜지 않고 실행한다. 로그인한 상태는 `spring-security-test`의 `oidcLogin()`으로 만든다.
@@ -219,7 +263,7 @@ accounts backend(9000), accounts frontend(3001), blog(8080)를 띄우고 `curl`�
 
 처음 확인에서는 6번이 `/login?error`로 끝났다(트러블슈팅 3).
 
-## 8. 트러블슈팅
+## 9. 트러블슈팅
 
 ### 1. 로그인이 필요한 화면인데 테스트에서는 401
 - **문제**: 로그인하지 않고 `GET /new-article`을 보내는 테스트가, accounts 로그인으로 보내는 302가 아니라 401을 받았다.
@@ -262,9 +306,9 @@ accounts backend(9000), accounts frontend(3001), blog(8080)를 띄우고 `curl`�
 ### 4. 옛 코드를 남겨 둔 채로 보안 설정만 바꿀 수 없었다
 - **문제**: 2-1에서 보안 설정만 바꾸고 옛 클래스는 다음 커밋에서 지우려 했는데, 그 상태로는 서버가 켜지지 않는다.
 - **원인**: `OAuth2SuccessHandler`가 `@Component`라서 보안 설정에서 쓰지 않아도 Spring이 빈으로 만든다. 이 클래스는 생성자로 쿠키 저장소 빈을 받는데, 그 빈은 바꾼 보안 설정에서 지웠다.
-- **해결**: 로그인 방식 교체(등록 + 옛 코드 삭제)를 한 커밋으로 묶었다. 지운 코드와 대체한 기능은 3장 표에 정리했다.
+- **해결**: 로그인 방식 교체(등록 + 옛 코드 삭제)를 한 커밋으로 묶었다. 지운 코드와 대체한 기능은 4장 표에 정리했다.
 
-## 9. 2단계 이후의 구조
+## 10. 2단계 이후의 구조
 ```
 브라우저
   ├─ localhost:8080  blog (Spring)
@@ -278,7 +322,7 @@ accounts backend(9000), accounts frontend(3001), blog(8080)를 띄우고 `curl`�
   └─ localhost:3001  accounts frontend (Next.js)  ← front-channel: 로그인, 로그아웃
 ```
 
-## 10. 남은 것
+## 11. 남은 것
 | 남은 것 | 비고 |
 |---|---|
 | blog 화면을 Next.js로 | 3단계. 지금은 임시 Thymeleaf 화면 |
