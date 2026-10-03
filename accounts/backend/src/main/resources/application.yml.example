@@ -1,0 +1,21 @@
+server:
+  port: 9000
+  servlet:
+    session:
+      cookie:
+        # 같은 localhost에서 실행하는 blog 서버의 JSESSIONID와 섞이지 않도록 이름을 바꾼다.
+        name: ACCOUNTS_SESSION
+
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    defer-datasource-initialization: true
+  datasource:
+    url: jdbc:h2:mem:accounts
+    username: sa
+  h2:
+    console:
+      enabled: true
