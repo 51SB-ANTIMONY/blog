@@ -12,6 +12,15 @@
 </div>
 
 <div class="container">
+    <div class="d-flex justify-content-end align-items-center mb-3">
+        <th:block th:if="${nickname != null}">
+            <span class="mr-3" th:text="|${nickname}님|"></span>
+            <form th:action="@{/logout}" method="post" class="m-0">
+                <button type="submit" class="btn btn-outline-secondary btn-sm">로그아웃</button>
+            </form>
+        </th:block>
+        <a th:if="${nickname == null}" href="/oauth2/authorization/accounts" class="btn btn-outline-primary btn-sm">로그인</a>
+    </div>
     <button type="button" id="create-btn"
             th:onclick="|location.href='@{/new-article}'|"
             class="btn btn-secondary btn-sm mb-3">글 등록</button>
@@ -27,7 +36,6 @@
         </div>
         <br>
     </div>
-    <button type="button" class="btn btn-secondary" onclick="location.href='/logout'">로그아웃</button>
 </div>
 
 

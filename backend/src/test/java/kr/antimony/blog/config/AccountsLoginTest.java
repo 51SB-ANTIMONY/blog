@@ -1,19 +1,26 @@
 package kr.antimony.blog.config;
 
+import kr.antimony.blog.domain.User;
+import kr.antimony.blog.repository.BlogRepository;
+import kr.antimony.blog.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,6 +30,15 @@ class AccountsLoginTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    @Autowired
+    ClientRegistrationRepository clientRegistrationRepository;
+
+    @Autowired
+    BlogRepository blogRepository;
+
+    @Autowired
+    UserRepository userRepository;
 
     @DisplayName("로그인이 필요한 화면을 브라우저로 열면 accounts 로그인 시작 주소로 보낸다.")
     @Test
@@ -62,5 +78,47 @@ class AccountsLoginTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"t\",\"content\":\"c\"}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @DisplayName("로그아웃: blog 세션을 지우고 accounts의 로그아웃 주소로 보낸다. ID 토큰과 돌아올 주소를 함께 보낸다.")
+    @Test
+    void logoutRedirectsToAccounts() throws Exception {
+        String location = mockMvc.perform(post("/logout")
+                        .with(oidcLogin()
+                                .clientRegistration(clientRegistrationRepository.findByRegistrationId("accounts"))
+                                .idToken(token -> token.subject("1001")))
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andReturn().getResponse().getRedirectedUrl();
+
+        UriComponents uri = UriComponentsBuilder.fromUriString(location).build();
+        assertThat(uri.getScheme() + "://" + uri.getHost() + ":" + uri.getPort() + uri.getPath())
+                .isEqualTo("http://localhost:3001/connect/logout");
+        assertThat(uri.getQueryParams().getFirst("id_token_hint")).isNotBlank();
+        assertThat(uri.getQueryParams().getFirst("post_logout_redirect_uri")).isEqualTo("http://localhost/");
+    }
+
+    @DisplayName("첫 주소(/)는 글 목록으로 보낸다. accounts에서 로그아웃한 뒤 돌아오는 곳이다.")
+    @Test
+    void homeRedirectsToArticles() throws Exception {
+        mockMvc.perform(get("/"))
+                .andExpect(redirectedUrl("/articles"));
+    }
+
+    @DisplayName("글 목록: 로그인 전에는 로그인 버튼, 로그인 후에는 닉네임과 로그아웃 버튼을 보여 준다.")
+    @Test
+    void articleListShowsLoginState() throws Exception {
+        blogRepository.deleteAll();
+        userRepository.deleteAll();
+        userRepository.save(User.builder().accountsSub("1001").nickname("작성자").build());
+
+        mockMvc.perform(get("/articles"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("/oauth2/authorization/accounts")));
+
+        mockMvc.perform(get("/articles").with(oidcLogin().idToken(token -> token.subject("1001"))))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("작성자님")))
+                .andExpect(content().string(containsString("로그아웃")));
     }
 }

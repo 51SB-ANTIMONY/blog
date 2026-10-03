@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
+import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
@@ -20,6 +22,7 @@ import static org.springframework.boot.security.autoconfigure.web.servlet.PathRe
 public class SecurityConfig {
 
     private final AccountsOidcUserService accountsOidcUserService;
+    private final ClientRegistrationRepository clientRegistrationRepository;
 
     @Bean
     public WebSecurityCustomizer configure() {
@@ -42,11 +45,23 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(accountsOidcUserService))
                         .defaultSuccessUrl("/articles"))
+                // 로그아웃(POST /logout): blog 세션을 지운 뒤 accounts의 로그아웃 주소로 보내 accounts 로그인도 끝낸다.
+                .logout(logout -> logout
+                        .logoutSuccessHandler(accountsLogoutSuccessHandler()))
                 // API는 accounts로 보내지 않고 401로 응답한다.
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
                                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
                                 PathPatternRequestMatcher.withDefaults().matcher("/api/**")))
                 .build();
+    }
+
+    // accounts의 /connect/logout?id_token_hint=...&post_logout_redirect_uri=http://localhost:8080/ 로 보낸다.
+    // post_logout_redirect_uri는 accounts에 등록한 주소와 같아야 한다.
+    private OidcClientInitiatedLogoutSuccessHandler accountsLogoutSuccessHandler() {
+        OidcClientInitiatedLogoutSuccessHandler handler =
+                new OidcClientInitiatedLogoutSuccessHandler(clientRegistrationRepository);
+        handler.setPostLogoutRedirectUri("{baseUrl}/");
+        return handler;
     }
 }
