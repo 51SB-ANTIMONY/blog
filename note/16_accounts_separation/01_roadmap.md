@@ -39,7 +39,7 @@ blog 서버가 직접 하던 로그인(Google 로그인, JWT 발급)을 떼어 �
 | **0단계** blog 준비 | accounts로 옮기기 전에 blog 코드를 정리한다 | 완료 | [0단계](./02_step0_blog_preparation.md) |
 | **1단계** accounts 서버 | blog의 로그인 코드를 accounts로 옮기고, 표준 OIDC 인가 서버와 로그인 화면을 만든다 | 완료 | [계획](./03_step1_accounts_server.md), [구현](./04_step1_accounts_implementation.md), [확인·트러블슈팅](./05_step1_accounts_verification_and_troubleshooting.md) |
 | **2단계** blog를 OIDC 클라이언트로 | blog가 로그인을 직접 하지 않고 accounts에 맡긴다 | 완료 | [계획](./06_step2_blog_oidc_client_plan.md), [구현·확인·트러블슈팅](./07_step2_blog_oidc_client.md) |
-| **3단계** blog 화면을 Next.js로 | 임시 Thymeleaf 화면을 Next.js로 바꾼다 | 계획 (결정 대기) | [계획](./08_step3_blog_frontend_plan.md) |
+| **3단계** blog 화면을 Next.js로 | 임시 Thymeleaf 화면을 Next.js로 바꾼다 | 완료 (브라우저 확인 남음) | [계획](./08_step3_blog_frontend_plan.md), [구현·확인·트러블슈팅](./09_step3_blog_frontend.md) |
 | 이후: 배포 준비 | accounts를 운영 환경에서 쓸 수 있게 한다 | 예정 | 아래 4장 |
 | 이후: 저장소 분리 | `accounts/`를 새 Git 저장소로 옮긴다 | 예정 | 아래 4장 |
 
@@ -60,17 +60,18 @@ git subtree split --prefix=accounts -b accounts-only   # accounts/ 이력만 뽑
 ```
 뽑은 브랜치를 새 저장소에 올린 뒤, blog 저장소에서는 `accounts/`를 지운다. 2장의 원칙을 지켜 왔으므로 코드 수정 없이 옮길 수 있어야 한다.
 
-## 5. 현재 구조 (2단계 이후)
+## 5. 현재 구조 (3단계 이후)
 ```
 브라우저
-  ├─ localhost:8080  blog (Spring)
-  │     · 로그인: accounts에 맡김 (oauth2Login)
-  │     · 세션 BLOG_SESSION, CSRF XSRF-TOKEN
+  ├─ localhost:3000  blog frontend (Next.js)        홈, 글 상세, 글 쓰기·수정
+  │        │ rewrites: /api/**, /oauth2/**, /login/oauth2/**, /logout
+  │        ▼
+  │   localhost:8080  blog backend (Spring)          글 API, 로그인 처리, 세션 BLOG_SESSION, CSRF
   │        │ 서버끼리: 토큰 교환, 공개 키
   │        ▼
   │   localhost:9000  accounts backend (Spring Authorization Server)
   │        ▲ rewrites
-  └─ localhost:3001  accounts frontend (Next.js) ← 브라우저: 로그인, 로그아웃 화면
+  └─ localhost:3001  accounts frontend (Next.js)    로그인, 회원가입, 내 계정
 ```
 
 ## 6. 이 폴더의 문서
@@ -83,4 +84,5 @@ git subtree split --prefix=accounts -b accounts-only   # accounts/ 이력만 뽑
 | [05 1단계: 확인과 트러블슈팅](./05_step1_accounts_verification_and_troubleshooting.md) | 자동 테스트, 실제 흐름, 겪은 문제 14개 |
 | [06 2단계: blog를 OIDC 클라이언트로 (계획)](./06_step2_blog_oidc_client_plan.md) | 목적, 세부 단계 2-1~2-6, 수행 방안 |
 | [07 2단계: 구현, 확인, 트러블슈팅](./07_step2_blog_oidc_client.md) | 단계별 코드, blog의 JWT를 지운 이유, 확인 결과, 겪은 문제 |
-| [08 3단계: blog 화면을 Next.js로 (계획)](./08_step3_blog_frontend_plan.md) | 목적, 세부 단계 3-0~3-7, 수행 방안, 정할 것 |
+| [08 3단계: blog 화면을 Next.js로 (계획)](./08_step3_blog_frontend_plan.md) | 목적, 세부 단계 3-0~3-7, 수행 방안, 정한 것 |
+| [09 3단계: 구현, 확인, 트러블슈팅](./09_step3_blog_frontend.md) | API 보완, Next.js 뒤에 두기, 화면 구현, Thymeleaf 제거, 확인 결과, 겪은 문제 |

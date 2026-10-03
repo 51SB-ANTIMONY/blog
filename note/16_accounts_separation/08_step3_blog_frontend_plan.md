@@ -7,7 +7,8 @@ tags: [nextjs, bff, ssr, csrf, frontend]
 # accounts 분리하기 - 3단계 blog 화면을 Next.js로 (목적과 계획)
 
 > 전체 단계는 [로드맵](./01_roadmap.md)에 있다.
-> 4장에서 정한 대로 진행한다. 화면 원본은 "ANTIMONY 블로그" 디자인 아티팩트다.
+> 4장에서 정한 대로 진행했다. 화면 원본은 "ANTIMONY 블로그" 디자인 아티팩트다.
+> 실제 구현, 확인 결과, 겪은 문제는 [3단계 구현, 확인, 트러블슈팅](./09_step3_blog_frontend.md)에 있다.
 
 ## 1. 목적
 **blog의 임시 Thymeleaf 화면을 Next.js 화면으로 바꾼다.** 로그인 방식은 2단계에서 만든 그대로 둔다. 2단계가 "로그인을 누가 처리하나"를 바꿨다면, 3단계는 "화면을 누가 그리나"를 바꾼다.
@@ -109,10 +110,11 @@ accounts(1-7)와 같은 구조다.
 ### 3-4. 화면 구현
 | 화면 | 그리는 곳 | 방법 |
 |---|---|---|
-| 글 목록, 글 상세 | 서버 (SSR) | Next.js 서버가 Spring의 공개 API를 직접 부른다. 로그인과 상관없는 내용이라 쿠키를 넘길 필요가 없다 |
-| 로그인 상태, 수정·삭제 버튼 | 브라우저 | `/api/me`, 글 응답의 `editable`을 브라우저에서 부른다 |
-| 글 쓰기·수정 | 브라우저 | 로그인이 필요하다. 401이면 accounts 로그인으로 |
-| 삭제 | 브라우저 | 확인 후 `DELETE`, 목록으로 이동 |
+| 홈, 글 상세, 404 | 서버 (SSR) | Next.js 서버가 Spring을 직접 부른다. 브라우저의 쿠키를 함께 넘겨, 로그인 상태(`/api/me`)와 `editable`도 처음부터 맞게 그린다 |
+| 카테고리 탭·카드 | 서버 | `/?category=daily` 같은 링크. 서버가 그 카테고리의 글만 그린다 |
+| 글 쓰기·수정 | 브라우저 | 로그인이 필요하다. 로그인 안 했으면 돌아올 주소를 `sessionStorage`에 두고 accounts 로그인으로. 작성자가 아니면 수정 화면 대신 글 상세로 |
+| 수정·삭제 버튼, 삭제 확인 | 브라우저 | 내 글(`editable`)에만. 확인 후 `DELETE`, 첫 화면으로 |
+| 로그아웃 | 브라우저 | `POST /logout` 폼(`_csrf`) |
 
 ### 3-5. Thymeleaf 제거
 새 화면이 모두 동작한 뒤에 지운다. `templates/`, `static/js/article.js`, `BlogViewController`, 화면용 DTO(`ArticleListViewResponse`, `ArticleViewResponse`), Thymeleaf 의존성. 2단계의 `/`, `/articles` 관련 테스트는 API 기준으로 바꾼다.
