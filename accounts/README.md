@@ -11,7 +11,7 @@
 | `backend/` | Spring Boot 인가 서버 | 개발 중 |
 | `frontend/` | Next.js 로그인, 회원가입 화면 | 예정 |
 
-## 현재 상태 (1-4단계)
+## 현재 상태 (1-5단계)
 Spring Authorization Server로 **OpenID Connect 인가 서버**가 되었습니다. 등록된 앱(지금은 `blog`)에 권한 부여 코드 방식으로 ID 토큰, 액세스 토큰, 리프레시 토큰을 발급합니다.
 
 ### 필터 체인
@@ -40,7 +40,16 @@ Spring Authorization Server로 **OpenID Connect 인가 서버**가 되었습니�
 | `nickname` | 2~20자. 중복 불가 |
 | `password` | 8~64자. BCrypt로 저장 |
 
-Google로 처음 로그인하면 자동으로 가입됩니다. 아이디는 `google_3f9a2c1b`처럼 자동으로 만들고, 닉네임은 Google 이름으로 정합니다(이미 있으면 뒤에 숫자 4자리). 비밀번호가 없으므로 아이디·비밀번호 로그인은 할 수 없습니다.
+### 소셜 로그인 (Google)
+소셜 계정은 이메일이 아니라 **제공자의 계정 고유 번호(Google의 `sub`)**로 회원과 연결합니다(`user_identities` 테이블). 소셜 계정의 이메일이 바뀌어도 같은 회원으로 로그인됩니다.
+
+| 상황 | 결과 |
+|---|---|
+| 처음 보는 Google 계정, 같은 이메일의 회원 없음 | 자동 가입. 아이디는 `google_3f9a2c1b`처럼 자동 생성, 닉네임은 Google 이름(이미 있으면 뒤에 숫자 4자리). 비밀번호가 없으므로 아이디·비밀번호 로그인은 불가 |
+| 이미 연결된 Google 계정 | 연결된 회원으로 로그인 |
+| 처음 보는 Google 계정인데 **같은 이메일의 회원이 이미 있음** | **거부.** 자동으로 합치지 않는다. `/login?social_error=email_already_registered` |
+| 아이디·비밀번호로 로그인한 상태에서 Google 로그인 | 그 회원에 Google 계정을 **연결** |
+| 연결하려는 Google 계정이 이미 다른 회원에 연결됨 | 거부. `/login?social_error=linked_to_another_user` |
 
 에러 응답 형식:
 ```json
@@ -55,7 +64,7 @@ Google로 처음 로그인하면 자동으로 가입됩니다. 아이디는 `goo
 자사 앱이므로 동의 화면은 생략합니다.
 
 ### 아직 남은 것
-- ID 토큰의 `sub`가 로그인 방식에 따라 다릅니다. 아이디 로그인은 `uid`, Google 로그인은 Google의 `sub`입니다. 회원 id로 통일하고 `nickname`, `email` 클레임을 추가합니다.
+- ID 토큰의 `sub`가 로그인 방식에 따라 다릅니다. 아이디 로그인은 `uid`, Google 로그인은 Google의 `sub`입니다. 회원 id로 통일하고 `nickname`, `email` 클레임을 추가합니다. (1-6)
 - 토큰 서명 키를 서버를 시작할 때마다 새로 만들어서, 재시작하면 기존 토큰을 검증할 수 없습니다.
 - 등록된 앱, 발급한 토큰은 메모리에 저장합니다. 재시작하면 사라집니다.
 - 화면은 임시로 Thymeleaf를 쓰며, Next.js로 바꿀 예정입니다.

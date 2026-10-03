@@ -22,6 +22,11 @@
                 <div class = "mb-2">
                     <p class="text-danger" th:if="${param.error}">아이디 또는 비밀번호를 확인해 주세요.</p>
                     <p class="text-white-50" th:if="${param.logout}">로그아웃되었습니다.</p>
+                    <p class="text-danger" th:if="${param.social_error}" th:switch="${param.social_error[0]}">
+                        <span th:case="'email_already_registered'">이미 같은 이메일로 가입한 계정이 있습니다. 기존 계정으로 로그인한 뒤 소셜 계정을 연결해 주세요.</span>
+                        <span th:case="'linked_to_another_user'">이 소셜 계정은 이미 다른 회원에 연결되어 있습니다.</span>
+                        <span th:case="*">소셜 로그인에 실패했습니다.</span>
+                    </p>
                     <form action="/login" method="POST">
                         <input type="hidden" th:name="${_csrf?.parameterName}" th:value="${_csrf?.token}" />
                         <div class="mb-3">

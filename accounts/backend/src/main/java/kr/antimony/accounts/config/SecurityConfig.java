@@ -7,7 +7,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 
 import static org.springframework.boot.security.autoconfigure.web.servlet.PathRequest.toH2Console;
 
@@ -44,7 +46,18 @@ public class SecurityConfig {
                 // Google로 로그인
                 .oauth2Login(oauth2 -> oauth2
                         .loginPage("/login")
-                        .userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint.userService(oAuth2UserCustomService)))
+                        .userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint.userService(oAuth2UserCustomService))
+                        .failureHandler(socialLoginFailureHandler()))
                 .build();
+    }
+
+    // 소셜 로그인 실패 시 오류 코드를 붙여 로그인 화면으로 보낸다. 예: /login?social_error=email_already_registered
+    private static AuthenticationFailureHandler socialLoginFailureHandler() {
+        return (request, response, exception) -> {
+            String code = (exception instanceof OAuth2AuthenticationException oAuth2Exception)
+                    ? oAuth2Exception.getError().getErrorCode()
+                    : "unknown";
+            response.sendRedirect(request.getContextPath() + "/login?social_error=" + code);
+        };
     }
 }

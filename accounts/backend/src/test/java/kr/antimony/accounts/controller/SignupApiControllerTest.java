@@ -2,6 +2,7 @@ package kr.antimony.accounts.controller;
 
 import kr.antimony.accounts.domain.User;
 import kr.antimony.accounts.dto.SignupRequest;
+import kr.antimony.accounts.repository.UserIdentityRepository;
 import kr.antimony.accounts.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,10 +39,15 @@ class SignupApiControllerTest {
     UserRepository userRepository;
 
     @Autowired
+    UserIdentityRepository userIdentityRepository;
+
+    @Autowired
     PasswordEncoder passwordEncoder;
 
     @BeforeEach
     void setUp() {
+        // user_identities가 users를 참조하므로 연결부터 지운다.
+        userIdentityRepository.deleteAll();
         userRepository.deleteAll();
     }
 
