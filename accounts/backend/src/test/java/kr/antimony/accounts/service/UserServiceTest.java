@@ -1,10 +1,11 @@
 package kr.antimony.accounts.service;
 
 import kr.antimony.accounts.domain.User;
-import kr.antimony.accounts.dto.SignupRequest;
 import kr.antimony.accounts.exception.SocialLoginException;
 import kr.antimony.accounts.repository.UserIdentityRepository;
 import kr.antimony.accounts.repository.UserRepository;
+import kr.antimony.accounts.support.TestUsers;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,9 @@ class UserServiceTest {
 
     @Autowired
     UserRepository userRepository;
+
+    @Autowired
+    PasswordEncoder passwordEncoder;
 
     @Autowired
     UserIdentityRepository userIdentityRepository;
@@ -59,7 +63,7 @@ class UserServiceTest {
     @DisplayName("소셜 로그인: 같은 이메일로 가입한 회원이 있어도 자동으로 합치지 않고 거부한다.")
     @Test
     void loginWithSocial_emailAlreadyRegistered() {
-        userService.signup(new SignupRequest("gildong", "a@gmail.com", "길동", "password123"));
+        TestUsers.localUser(userRepository, passwordEncoder, "gildong", "a@gmail.com", "길동", "password123");
 
         assertThatThrownBy(() -> userService.loginWithSocial("google", "google-sub-1", "a@gmail.com", "홍길동"))
                 .isInstanceOf(SocialLoginException.class)
@@ -72,9 +76,9 @@ class UserServiceTest {
     @DisplayName("명시적 연결: 아이디로 로그인한 회원에 소셜 계정을 연결하면, 이후 그 소셜 계정으로 같은 회원에 로그인된다.")
     @Test
     void linkSocial() {
-        User local = userService.signup(new SignupRequest("gildong", "a@gmail.com", "길동", "password123"));
+        User local = TestUsers.localUser(userRepository, passwordEncoder, "gildong", "a@gmail.com", "길동", "password123");
 
-        userService.linkSocial("gildong", "google", "google-sub-1");
+        userService.linkSocial(local.getId(), "google", "google-sub-1");
         User loggedIn = userService.loginWithSocial("google", "google-sub-1", "a@gmail.com", "홍길동");
 
         assertThat(loggedIn.getId()).isEqualTo(local.getId());
@@ -86,9 +90,9 @@ class UserServiceTest {
     @Test
     void linkSocial_linkedToAnotherUser() {
         userService.loginWithSocial("google", "google-sub-1", "a@gmail.com", "홍길동");
-        userService.signup(new SignupRequest("gildong", "b@antimony.kr", "길동", "password123"));
+        User local = TestUsers.localUser(userRepository, passwordEncoder, "gildong", "b@antimony.kr", "길동", "password123");
 
-        assertThatThrownBy(() -> userService.linkSocial("gildong", "google", "google-sub-1"))
+        assertThatThrownBy(() -> userService.linkSocial(local.getId(), "google", "google-sub-1"))
                 .isInstanceOf(SocialLoginException.class)
                 .extracting("code").isEqualTo("linked_to_another_user");
     }
@@ -96,10 +100,10 @@ class UserServiceTest {
     @DisplayName("명시적 연결: 이미 이 회원에 연결된 소셜 계정을 다시 연결해도 그대로 둔다.")
     @Test
     void linkSocial_alreadyLinked() {
-        userService.signup(new SignupRequest("gildong", "a@gmail.com", "길동", "password123"));
+        User local = TestUsers.localUser(userRepository, passwordEncoder, "gildong", "a@gmail.com", "길동", "password123");
 
-        userService.linkSocial("gildong", "google", "google-sub-1");
-        userService.linkSocial("gildong", "google", "google-sub-1");
+        userService.linkSocial(local.getId(), "google", "google-sub-1");
+        userService.linkSocial(local.getId(), "google", "google-sub-1");
 
         assertThat(userIdentityRepository.count()).isEqualTo(1);
     }
@@ -107,7 +111,7 @@ class UserServiceTest {
     @DisplayName("소셜 가입: 같은 닉네임의 회원이 이미 있으면 닉네임 뒤에 숫자 4자리를 붙인다.")
     @Test
     void loginWithSocial_nicknameCollision() {
-        userService.signup(new SignupRequest("gildong", "gildong@antimony.kr", "홍길동", "password123"));
+        TestUsers.localUser(userRepository, passwordEncoder, "gildong", "gildong@antimony.kr", "홍길동", "password123");
 
         User user = userService.loginWithSocial("google", "google-sub-1", "b@gmail.com", "홍길동");
 

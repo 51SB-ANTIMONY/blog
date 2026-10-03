@@ -1,17 +1,16 @@
 package kr.antimony.accounts.config.oauth;
 
 import kr.antimony.accounts.domain.User;
-import kr.antimony.accounts.dto.SignupRequest;
 import kr.antimony.accounts.repository.UserIdentityRepository;
 import kr.antimony.accounts.repository.UserRepository;
-import kr.antimony.accounts.security.AccountUserDetails;
+import kr.antimony.accounts.support.TestUsers;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import kr.antimony.accounts.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,6 +25,9 @@ class OAuth2UserCustomServiceTest {
 
     @Autowired
     UserRepository userRepository;
+
+    @Autowired
+    PasswordEncoder passwordEncoder;
 
     @Autowired
     UserIdentityRepository userIdentityRepository;
@@ -48,10 +50,9 @@ class OAuth2UserCustomServiceTest {
     @DisplayName("아이디·비밀번호로 로그인한 상태에서 소셜 로그인을 하면 그 회원에 소셜 계정이 연결된다.")
     @Test
     void loggedInWithPassword_links() {
-        User local = userService.signup(new SignupRequest("gildong", "a@gmail.com", "길동", "password123"));
+        User local = TestUsers.localUser(userRepository, passwordEncoder, "gildong", "a@gmail.com", "길동", "password123");
         // 폼 로그인에 성공하면 Authentication의 principal은 UserDetailService가 돌려준 AccountUserDetails다.
-        AccountUserDetails details = new AccountUserDetails(local);
-        var current = UsernamePasswordAuthenticationToken.authenticated(details, null, details.getAuthorities());
+        var current = TestUsers.loggedIn(local);
 
         User user = oAuth2UserCustomService.resolveUser(current, "google", "google-sub-1", "a@gmail.com", "홍길동");
 

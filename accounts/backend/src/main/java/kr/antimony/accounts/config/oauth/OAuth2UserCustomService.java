@@ -3,7 +3,7 @@ package kr.antimony.accounts.config.oauth;
 import kr.antimony.accounts.domain.User;
 import kr.antimony.accounts.exception.SocialLoginException;
 import kr.antimony.accounts.security.AccountOAuth2User;
-import kr.antimony.accounts.security.AccountUserDetails;
+import kr.antimony.accounts.security.AccountPrincipal;
 import kr.antimony.accounts.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -46,11 +46,11 @@ public class OAuth2UserCustomService extends DefaultOAuth2UserService {
         return new AccountOAuth2User(user.getId(), attributes, oAuth2User.getAuthorities());
     }
 
-    // 아이디·비밀번호로 이미 로그인한 상태에서 소셜 로그인을 하면 → 그 회원에 소셜 계정을 연결한다. (명시적 연결)
+    // 이미 로그인한 상태(아이디·비밀번호 또는 다른 소셜 계정)에서 소셜 로그인을 하면 → 그 회원에 소셜 계정을 연결한다. (명시적 연결)
     // 로그인하지 않은 상태라면 → 소셜 계정으로 로그인한다. 처음이면 가입시킨다.
     User resolveUser(Authentication current, String provider, String providerSubject, String email, String name) {
-        if (current != null && current.isAuthenticated() && current.getPrincipal() instanceof AccountUserDetails localUser) {
-            return userService.linkSocial(localUser.getUid(), provider, providerSubject);
+        if (current != null && current.isAuthenticated() && current.getPrincipal() instanceof AccountPrincipal account) {
+            return userService.linkSocial(account.getUserId(), provider, providerSubject);
         }
         return userService.loginWithSocial(provider, providerSubject, email, name);
     }

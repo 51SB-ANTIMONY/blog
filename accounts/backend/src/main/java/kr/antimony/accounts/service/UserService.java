@@ -1,54 +1,58 @@
 package kr.antimony.accounts.service;
 
+import kr.antimony.accounts.domain.PendingSignup;
 import kr.antimony.accounts.domain.User;
 import kr.antimony.accounts.domain.UserIdentity;
-import kr.antimony.accounts.dto.SignupRequest;
+import kr.antimony.accounts.dto.MeResponse;
+import kr.antimony.accounts.exception.BadRequestException;
+import kr.antimony.accounts.exception.ConflictException;
 import kr.antimony.accounts.exception.DuplicateUserException;
 import kr.antimony.accounts.exception.SocialLoginException;
 import kr.antimony.accounts.repository.UserIdentityRepository;
 import kr.antimony.accounts.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @RequiredArgsConstructor
 @Service
 public class UserService {
-    private static final int NICKNAME_MAX_LENGTH = 20;
+    private static final int NICKNAME_MAX_LENGTH = 16;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final UserIdentityRepository userIdentityRepository;
-    private final PasswordEncoder passwordEncoder;
 
-    // 아이디·비밀번호 회원가입. 아이디, 이메일, 닉네임이 이미 있으면 필드별 메시지를 담아 409로 응답한다.
+    // 이메일 인증을 마친 가입 신청으로 회원을 만든다.
+    // 신청 뒤 인증 전에 다른 사람이 같은 값으로 먼저 가입했을 수 있으므로 한 번 더 확인한다.
     @Transactional
-    public User signup(SignupRequest request) {
+    public User createLocalUser(PendingSignup pending) {
         Map<String, String> errors = new LinkedHashMap<>();
-        if (userRepository.existsByUid(request.getUid())) {
-            errors.put("uid", "이미 사용 중인 아이디입니다.");
+        if (userRepository.existsByUid(pending.getUid())) {
+            errors.put("uid", "이미 사용 중인 아이디예요.");
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            errors.put("email", "이미 가입된 이메일입니다.");
+        if (userRepository.existsByEmail(pending.getEmail())) {
+            errors.put("email", "이미 가입된 이메일이에요.");
         }
-        if (userRepository.existsByNickname(request.getNickname())) {
-            errors.put("nickname", "이미 사용 중인 닉네임입니다.");
+        if (userRepository.existsByNickname(pending.getNickname())) {
+            errors.put("nickname", "이미 사용 중인 닉네임이에요.");
         }
         if (!errors.isEmpty()) {
             throw new DuplicateUserException(errors);
         }
 
         return userRepository.save(User.builder()
-                .uid(request.getUid())
-                .email(request.getEmail())
-                .nickname(request.getNickname())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .uid(pending.getUid())
+                .email(pending.getEmail())
+                .nickname(pending.getNickname())
+                .password(pending.getPasswordHash())
+                .marketingAgreed(pending.isMarketingAgreed())
                 .build());
     }
 
@@ -77,11 +81,11 @@ public class UserService {
         return user;
     }
 
-    // 명시적 연결. 아이디·비밀번호로 로그인한 회원(uid)에 소셜 계정을 연결한다.
+    // 명시적 연결. 이미 로그인한 회원(userId)에 소셜 계정을 연결한다.
     @Transactional
-    public User linkSocial(String uid, String provider, String providerSubject) {
-        User user = userRepository.findByUid(uid)
-                .orElseThrow(() -> new IllegalStateException("로그인한 회원을 찾을 수 없습니다: " + uid));
+    public User linkSocial(Long userId, String provider, String providerSubject) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("로그인한 회원을 찾을 수 없습니다: " + userId));
 
         return userIdentityRepository.findByProviderAndProviderSubject(provider, providerSubject)
                 .map(identity -> {
@@ -96,7 +100,32 @@ public class UserService {
                 });
     }
 
-    // 예: google_3f9a2c1b (아이디 규칙 ^[a-z0-9_]{4,20}$ 을 만족한다)
+    // 내 계정 정보
+    @Transactional(readOnly = true)
+    public MeResponse me(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("로그인한 회원을 찾을 수 없습니다: " + userId));
+        List<MeResponse.LinkedIdentity> identities = userIdentityRepository.findByUserId(userId).stream()
+                .map(identity -> new MeResponse.LinkedIdentity(identity.getProvider(), identity.getCreatedAt()))
+                .toList();
+        return new MeResponse(user.getId(), user.getUid(), user.getEmail(), user.getNickname(), user.hasPassword(), identities);
+    }
+
+    // 소셜 계정 연결 해제. 로그인할 방법이 하나도 남지 않게 되면 거부한다.
+    @Transactional
+    public void unlinkSocial(Long userId, String provider) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("로그인한 회원을 찾을 수 없습니다: " + userId));
+        UserIdentity identity = userIdentityRepository.findByUserIdAndProvider(userId, provider)
+                .orElseThrow(() -> new BadRequestException("연결되지 않은 계정이에요."));
+
+        if (!user.hasPassword() && userIdentityRepository.findByUserId(userId).size() == 1) {
+            throw new ConflictException("마지막 로그인 수단은 해제할 수 없어요. 비밀번호 찾기로 비밀번호를 먼저 설정해 주세요.");
+        }
+        userIdentityRepository.delete(identity);
+    }
+
+    // 예: google_3f9a2c1b
     private String generateUid(String provider) {
         String uid;
         do {

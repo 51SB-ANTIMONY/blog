@@ -34,6 +34,10 @@ import kr.antimony.accounts.domain.User;
 import kr.antimony.accounts.repository.UserRepository;
 import kr.antimony.accounts.security.AccountPrincipal;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.logout.CompositeLogoutHandler;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+import org.springframework.security.web.authentication.rememberme.TokenBasedRememberMeServices;
+import org.springframework.security.oauth2.server.authorization.oidc.web.authentication.OidcLogoutAuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
@@ -53,13 +57,20 @@ public class AuthorizationServerConfig {
 
     @Bean
     @Order(1)
-    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http,
+                                                                      TokenBasedRememberMeServices rememberMeServices) throws Exception {
+        // 전체 로그아웃(/connect/logout)에서 세션과 함께 "로그인 상태 유지" 쿠키도 지운다.
+        // 쿠키가 남아 있으면 다음 로그인 요청 때 자동으로 다시 로그인되기 때문이다.
+        OidcLogoutAuthenticationSuccessHandler logoutHandler = new OidcLogoutAuthenticationSuccessHandler();
+        logoutHandler.setLogoutHandler(new CompositeLogoutHandler(new SecurityContextLogoutHandler(), rememberMeServices));
+
         http
                 .oauth2AuthorizationServer(authorizationServer -> {
                     // 이 체인은 인가 서버 주소만 담당한다. 나머지는 SecurityConfig의 체인(@Order(2))이 담당한다.
                     http.securityMatcher(authorizationServer.getEndpointsMatcher());
                     // OpenID Connect 기능 사용 (ID 토큰, /userinfo, 설정 문서, 로그아웃)
-                    authorizationServer.oidc(Customizer.withDefaults());
+                    authorizationServer.oidc(oidc -> oidc
+                            .logoutEndpoint(logout -> logout.logoutResponseHandler(logoutHandler)));
                 })
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().authenticated())

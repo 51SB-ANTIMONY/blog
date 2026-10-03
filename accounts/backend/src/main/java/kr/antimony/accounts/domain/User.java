@@ -23,17 +23,31 @@ public class User {
     @Column(name = "email", nullable = false, unique = true)
     private String email;
 
+    // BCrypt 해시. 소셜 로그인으로만 가입한 회원은 비밀번호가 없다(NULL).
     @Column(name = "password")
     private String password;
 
     @Column(name = "nickname", nullable = false, unique = true)
     private String nickname;
 
+    // [선택] 이벤트·소식 수신 동의
+    @Column(name = "marketing_agreed", nullable = false)
+    private boolean marketingAgreed;
+
     @Builder
-    public User(String uid, String email, String password, String nickname) {
+    public User(String uid, String email, String password, String nickname, boolean marketingAgreed) {
         this.uid = uid;
         this.email = email;
         this.password = password;
         this.nickname = nickname;
+        this.marketingAgreed = marketingAgreed;
+    }
+
+    public boolean hasPassword() {
+        return password != null;
+    }
+
+    public void changePassword(String passwordHash) {
+        this.password = passwordHash;
     }
 }
