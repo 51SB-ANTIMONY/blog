@@ -91,7 +91,7 @@ PC와 모바일(가로 1023px 이하), 라이트·다크 모드를 지원합니�
 ### 등록된 앱
 | client_id | 인증 방식 | redirect_uri | scope | 토큰 수명 |
 |---|---|---|---|---|
-| `blog` | `client_secret_basic` + PKCE | `http://localhost:8080/login/oauth2/code/accounts` | `openid`, `profile`, `email` | 액세스 30분, 리프레시 14일 (재발급 시 교체) |
+| `blog` | `client_secret_basic` + PKCE | `http://localhost:3000/login/oauth2/code/accounts` (blog 화면 Next.js를 거친 주소) | `openid`, `profile`, `email` | 액세스 30분, 리프레시 14일 (재발급 시 교체) |
 
 자사 앱이므로 동의 화면은 생략합니다.
 
