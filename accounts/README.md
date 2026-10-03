@@ -2,8 +2,8 @@
 
 `accounts.antimony.kr`에서 동작할 antimony.kr 통합 로그인(SSO) 서버입니다. 아이디·비밀번호 로그인과 소셜 로그인(Google)을 제공하고, antimony.kr의 여러 앱에 OpenID Connect로 로그인을 제공하는 것이 목표입니다.
 
-> 현재 개발 중입니다. 설계는 [note/15_sso](../note/15_sso), 단계별 계획과 구현 과정은 [note/16_accounts_separation](../note/16_accounts_separation)을 참고해 주세요.
-> 이 폴더는 나중에 별도 저장소로 분리합니다. 그래서 폴더 밖의 파일을 참조하지 않고, 이 폴더만으로 빌드되고 실행되도록 구성합니다.
+> 현재 개발 중입니다. 설계와 개발 과정은 blog 저장소의 노트에 정리했습니다: [설계 (15_sso)](https://github.com/51SB-ANTIMONY/blog/tree/main/note/15_sso), [단계별 계획과 구현 (16_accounts_separation)](https://github.com/51SB-ANTIMONY/blog/tree/main/note/16_accounts_separation).
+> 처음에는 blog 저장소의 `accounts/` 폴더에서 만들었고, 이 저장소로 분리했습니다. 커밋 이력도 함께 옮겼습니다.
 
 ## 구성
 | 폴더 | 내용 | 상태 |
