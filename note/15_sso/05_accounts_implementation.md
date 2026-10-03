@@ -1,10 +1,10 @@
 ---
-title: accounts 인가 서버 구현 과정 (1-1 ~ 1-3)
+title: accounts 인가 서버 구현 과정 (1-1 ~ 1-4)
 date: 2026-10-03
 tags: [oidc, authorization-server, spring-security, implementation]
 ---
 
-# accounts 인가 서버 구현 과정 (1-1 ~ 1-3)
+# accounts 인가 서버 구현 과정 (1-1 ~ 1-4)
 
 > 개념은 [인가 서버와 Spring Authorization Server](./04_spring_authorization_server.md), 설계는 [antimony.kr 통합 로그인 설계](./02_antimony_accounts_design.md)에 정리했다.
 > 이 노트는 실제로 만든 과정과 코드를 정리한다. 동작 확인 결과와 겪은 문제는 [accounts 동작 확인과 트러블슈팅](./06_accounts_verification_and_troubleshooting.md)에 있다.
@@ -21,6 +21,7 @@ blog 서버에 있던 로그인 코드를 accounts로 옮긴 뒤, 그것을 표�
 | 1-1 | `d525572` | `accounts/backend` 독립 프로젝트 뼈대 |
 | 1-2 | `2d09b81` | blog의 인증 코드를 그대로 복사 |
 | 1-3 | `cde278b` | 토큰 처리를 Spring Authorization Server로 교체 |
+| 1-4 | `d226214` | 아이디·비밀번호 회원가입 정리 |
 
 ## 2. 폴더 구조와 독립성
 ```
@@ -273,7 +274,49 @@ accounts:
 ```
 1-2의 `jwt.*`, `accounts.login-success-redirect-url`은 지웠다. 로컬 설정의 blog Client Secret은 임의의 값을 새로 만들어 넣었다. 2단계에서 blog 서버 설정에도 같은 값을 넣는다.
 
-## 6. 1-3 이후의 구조
+## 6. 1-4: 아이디·비밀번호 회원가입 정리
+
+### 정한 것
+| 결정 | 내용 |
+|---|---|
+| `uid` 제약 | `NOT NULL`, `UNIQUE` |
+| 소셜 회원의 `uid` | 자동 생성. `제공자_임의값` (예: `google_3f9a2c1b`). 비밀번호가 없으므로 이 아이디로 비밀번호 로그인은 할 수 없다 |
+| 입력값 규칙 | `uid` 4~20자 영문 소문자·숫자·밑줄, `email` 형식 검사, `nickname` 2~20자, `password` 8~64자 |
+| 중복 | `uid`, `email`, `nickname` 중 하나라도 있으면 409와 필드별 메시지 |
+
+### 바뀐 코드
+| 파일 | 내용 |
+|---|---|
+| `User` | `uid`에 `nullable = false, unique = true` |
+| `SignupRequest` (이전 `AddUserRequest`) | Bean Validation 어노테이션(`@NotBlank`, `@Pattern`, `@Email`, `@Size`)으로 입력값 규칙 |
+| `SignupResponse` | 회원가입 응답. 비밀번호는 담지 않는다 |
+| `SignupApiController` | `POST /api/signup` (JSON). Next.js 화면이 쓸 API |
+| `UserService.signup()` | 중복 검사 → 필드별 에러를 모아 `DuplicateUserException`(409) → 비밀번호 BCrypt 저장 |
+| `UserService.registerOAuthUser()` | 소셜 가입. `OAuth2UserCustomService`에 있던 로직을 옮겼다. `uid` 자동 생성, 닉네임 중복 시 숫자 4자리 추가 |
+| `PasswordEncoderConfig` | `PasswordEncoder` 빈을 보안 설정에서 분리 |
+| `exception/` | `ApiException`, `DuplicateUserException`, `ErrorResponse`, `GlobalExceptionHandler`. blog와 같은 `{"message", "errors"}` 형식 (코드를 공유하지 않고 따로 작성) |
+| `UserApiController` (`POST /user`) | 임시 Thymeleaf 폼도 같은 `UserService.signup()`을 쓴다. 실패하면 `/signup?error` 또는 `/signup?duplicate` |
+| `SecurityConfig` | `/api/signup` 허용. CSRF는 켜 둔 채로 둔다 |
+
+### `PasswordEncoder`를 분리한 이유 (순환 참조)
+blog에서 복사해 온 `UserService`는 `PasswordEncoder`를 주입받지 않고 `new BCryptPasswordEncoder()`로 직접 만들고 있었다. 주입받으면 다음 순서로 서로를 기다리는 **순환 참조**가 생기기 때문이었다.
+```
+SecurityConfig ─(생성자)→ OAuth2UserCustomService ─→ UserService ─→ PasswordEncoder
+      ▲                                                                   │
+      └──────────────────── PasswordEncoder 빈이 SecurityConfig 안에 있음 ◀─┘
+```
+> **순환 참조란?**
+> 빈 A를 만들려면 빈 B가 필요하고, 빈 B를 만들려면 다시 빈 A가 필요한 상태다. Spring은 어느 쪽도 먼저 만들 수 없어서 시작에 실패한다.
+
+`PasswordEncoder` 빈을 별도 설정 클래스(`PasswordEncoderConfig`)로 옮겨 고리를 끊고, `UserService`가 정상적으로 주입받게 했다.
+
+### 닉네임 중복 처리
+blog 트러블슈팅 9번(이름이 같은 Google 사용자가 가입하면 `nickname`의 `UNIQUE` 제약에 걸려 실패)과 같은 문제가 accounts에도 있었다. 소셜 가입에서는 사용자가 닉네임을 직접 고를 수 없으므로, 이미 있으면 뒤에 숫자 4자리를 붙인다(예: `홍길동` → `홍길동4821`). 이름이 없으면 이메일의 `@` 앞부분을 쓰고, 20자를 넘으면 자른다.
+
+### CSRF
+`/api/signup`은 세션 쿠키를 쓰는 서버의 `POST` 요청이므로 CSRF 보호를 끄지 않았다. 지금은 CSRF 토큰을 세션에 저장한다. 1-7에서 Next.js 화면이 이 API를 부를 때는 CSRF 토큰을 쿠키(`XSRF-TOKEN`)로 받아 헤더(`X-XSRF-TOKEN`)로 보내도록 바꾼다.
+
+## 7. 1-4 이후의 구조
 ```
 accounts.antimony.kr (지금은 localhost:9000)
  │
@@ -284,14 +327,14 @@ accounts.antimony.kr (지금은 localhost:9000)
  │
  └ 체인 ② SecurityConfig                그 외
       · 폼 로그인 (uid + 비밀번호)  → UserDetailService
-      · Google 로그인             → OAuth2UserCustomService (첫 로그인 시 회원 생성)
+      · Google 로그인             → OAuth2UserCustomService → UserService.registerOAuthUser()
+      · 회원가입 POST /api/signup → UserService.signup()
       · 세션 (ACCOUNTS_SESSION), CSRF
 ```
 
-## 7. 아직 남은 것
+## 8. 아직 남은 것
 | 남은 것 | 단계 |
 |---|---|
-| 회원가입 API(`POST /api/signup`), `uid` 제약(`NOT NULL`, `UNIQUE`), 입력값 검증, `UserService`의 `PasswordEncoder` 주입 | 1-4 |
 | Google 계정을 이메일이 아니라 Google의 `sub`로 연결 (`user_identities`) | 1-5 |
 | ID 토큰의 `sub`를 회원 id로 통일, `nickname`·`email` 클레임, 전체 로그아웃 | 1-6 |
 | 화면을 Next.js로 교체 | 1-7 |
