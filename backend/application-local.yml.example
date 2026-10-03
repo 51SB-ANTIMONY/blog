@@ -1,6 +1,9 @@
 # 로컬 개발 설정 (Git 제외). 같은 폴더의 application-local.yml.example을 복사해서 만든다.
 # 이 파일은 backend/ 폴더(실행 위치)에 둔다. Spring Boot가 실행 위치의 설정 파일을 자동으로 읽고, JAR에는 들어가지 않는다.
 spring:
+  flyway:
+    # 로컬에서만 예시 글을 넣는다 (db/sample/R__sample_data.sql)
+    locations: classpath:db/migration,classpath:db/sample
   jpa:
     show-sql: true
     properties:

@@ -1,6 +1,8 @@
 package kr.antimony.blog.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -27,7 +29,9 @@ public class Article {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    // MySQL 전용 enum 타입 대신 문자열(VARCHAR)로 저장한다. 값이 늘어도 테이블을 바꿀 필요가 없다.
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "category", nullable = false, length = 20)
     private Category category;
 

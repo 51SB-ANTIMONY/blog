@@ -26,7 +26,11 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    runtimeOnly 'com.h2database:h2' // In-memory DB
+    runtimeOnly 'com.h2database:h2' // In-memory DB (로컬, 테스트)
+    runtimeOnly 'com.mysql:mysql-connector-j' // 운영 DB
+    // DB 테이블을 SQL 스크립트로 관리 (src/main/resources/db/migration)
+    implementation 'org.springframework.boot:spring-boot-starter-flyway'
+    runtimeOnly 'org.flywaydb:flyway-mysql'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     implementation 'org.springframework.boot:spring-boot-h2console'
