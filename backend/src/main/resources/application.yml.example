@@ -1,4 +1,7 @@
 server:
+  # blog 화면(Next.js, 3000)이 요청을 넘겨줄 때 붙이는 X-Forwarded-Host를 보고,
+  # 사용자가 접속한 주소(3000) 기준으로 리다이렉트 주소와 redirect_uri를 만든다.
+  forward-headers-strategy: framework
   servlet:
     session:
       cookie:

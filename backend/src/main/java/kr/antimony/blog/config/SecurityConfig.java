@@ -47,7 +47,8 @@ public class SecurityConfig {
                 // 로그인이 필요하면 accounts로 보낸다. (등록된 로그인 제공자가 accounts 하나뿐이라 바로 이동)
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(accountsOidcUserService))
-                        .defaultSuccessUrl("/articles"))
+                        // 로그인 후 돌아갈 요청이 없으면 화면의 첫 페이지로
+                        .defaultSuccessUrl("/"))
                 // 로그아웃(POST /logout): blog 세션을 지운 뒤 accounts의 로그아웃 주소로 보내 accounts 로그인도 끝낸다.
                 .logout(logout -> logout
                         .logoutSuccessHandler(accountsLogoutSuccessHandler()))

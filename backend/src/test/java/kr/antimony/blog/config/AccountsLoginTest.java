@@ -70,6 +70,35 @@ class AccountsLoginTest {
         assertThat(uri.getQueryParams().getFirst("nonce")).isNotBlank();
     }
 
+    @DisplayName("Next.js(3000)를 거친 요청이면 redirect_uri도 3000으로 만든다. (X-Forwarded-Host)")
+    @Test
+    void redirectUriBehindFrontend() throws Exception {
+        String location = mockMvc.perform(get("/oauth2/authorization/accounts")
+                        .header("X-Forwarded-Host", "localhost:3000"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn().getResponse().getRedirectedUrl();
+
+        UriComponents uri = UriComponentsBuilder.fromUriString(location).build();
+        assertThat(uri.getQueryParams().getFirst("redirect_uri"))
+                .isEqualTo("http://localhost:3000/login/oauth2/code/accounts");
+    }
+
+    @DisplayName("Next.js(3000)를 거친 로그아웃이면 로그아웃 후 돌아올 주소도 3000이다.")
+    @Test
+    void logoutBehindFrontend() throws Exception {
+        String location = mockMvc.perform(post("/logout")
+                        .header("X-Forwarded-Host", "localhost:3000")
+                        .with(oidcLogin()
+                                .clientRegistration(clientRegistrationRepository.findByRegistrationId("accounts"))
+                                .idToken(token -> token.subject("1001")))
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andReturn().getResponse().getRedirectedUrl();
+
+        UriComponents uri = UriComponentsBuilder.fromUriString(location).build();
+        assertThat(uri.getQueryParams().getFirst("post_logout_redirect_uri")).isEqualTo("http://localhost:3000/");
+    }
+
     @DisplayName("주소: 브라우저가 가는 주소는 issuer(3001), blog 서버가 직접 부르는 주소는 backchannel-uri(9000)")
     @Test
     void frontAndBackChannelUris() {
