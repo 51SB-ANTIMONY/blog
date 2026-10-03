@@ -60,7 +60,7 @@
 
 ## 프로젝트 구조
 ```
-src/main/java/kr/antimony
+src/main/java/kr/antimony/blog
 ├── BlogApplication.java                 # 시작 클래스 (@EnableJpaAuditing)
 ├── config/
 │   ├── WebOAuthSecurityConfig.java      # 보안 설정: OAuth2 로그인, JWT 필터, STATELESS, 인가 규칙
