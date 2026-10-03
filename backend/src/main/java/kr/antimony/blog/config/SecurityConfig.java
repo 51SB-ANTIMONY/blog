@@ -4,6 +4,7 @@ import kr.antimony.blog.config.oauth.AccountsOidcUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
@@ -39,6 +40,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.spa())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/csrf").permitAll()
+                        // 글 읽기는 누구나. 쓰기, 수정, 삭제는 로그인 필요
+                        .requestMatchers(HttpMethod.GET, "/api/articles", "/api/articles/*").permitAll()
                         .requestMatchers("/new-article", "/api/**").authenticated()
                         .anyRequest().permitAll())
                 // 로그인이 필요하면 accounts로 보낸다. (등록된 로그인 제공자가 accounts 하나뿐이라 바로 이동)

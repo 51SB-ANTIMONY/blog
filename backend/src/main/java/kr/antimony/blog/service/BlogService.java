@@ -1,6 +1,7 @@
 package kr.antimony.blog.service;
 
 import kr.antimony.blog.domain.Article;
+import kr.antimony.blog.domain.Category;
 import kr.antimony.blog.domain.User;
 import kr.antimony.blog.dto.AddArticleRequest;
 import kr.antimony.blog.dto.UpdateArticleRequest;
@@ -27,8 +28,12 @@ public class BlogService {
     }
 
     // 최신 글이 먼저 오도록 id 내림차순
-    public List<Article> findAll() {
-        return blogRepository.findAllByOrderByIdDesc();
+    // category가 null이면 전체
+    public List<Article> findAll(Category category) {
+        if (category == null) {
+            return blogRepository.findAllByOrderByIdDesc();
+        }
+        return blogRepository.findAllByCategoryOrderByIdDesc(category);
     }
 
     public Article findById(long id) {
@@ -48,7 +53,7 @@ public class BlogService {
         Article article = findById(id);
 
         authorizeArticleAuthor(article);
-        article.update(request.getTitle(), request.getContent());
+        article.update(request.getTitle(), request.getContent(), request.getCategory(), request.getSummary());
 
         return article;
     }

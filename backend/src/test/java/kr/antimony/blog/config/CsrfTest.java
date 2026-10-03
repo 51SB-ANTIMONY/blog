@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class CsrfTest {
 
-    private static final String ARTICLE = "{\"title\":\"title\",\"content\":\"content\"}";
+    private static final String ARTICLE = "{\"title\":\"title\",\"content\":\"content\",\"category\":\"DAILY\"}";
 
     @Autowired
     MockMvc mockMvc;

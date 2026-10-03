@@ -29,7 +29,7 @@ public class BlogViewController {
     }
     @GetMapping("/articles")
     public String getArticles(@AuthenticationPrincipal OidcUser oidcUser, Model model) {
-        List<ArticleListViewResponse> articles = blogService.findAll().stream()
+        List<ArticleListViewResponse> articles = blogService.findAll(null).stream()
                 .map(ArticleListViewResponse::new)
                 .toList();
 

@@ -1,6 +1,7 @@
 package kr.antimony.blog.controller;
 
 import kr.antimony.blog.domain.Article;
+import kr.antimony.blog.domain.Category;
 import kr.antimony.blog.domain.User;
 import kr.antimony.blog.dto.AddArticleRequest;
 import kr.antimony.blog.dto.UpdateArticleRequest;
@@ -68,7 +69,7 @@ class BlogApiControllerTest {
         final String url = "/api/articles";
         final String title = "title";
         final String content = "content";
-        final String requestBody = objectMapper.writeValueAsString(new AddArticleRequest(title, content));
+        final String requestBody = objectMapper.writeValueAsString(new AddArticleRequest(title, content, Category.STUDY, null));
 
         // when
         ResultActions result = mockMvc.perform(post(url)
@@ -153,7 +154,7 @@ class BlogApiControllerTest {
         // given
         final String url = "/api/articles/{id}";
         Article savedArticle = createArticle(user);
-        UpdateArticleRequest request = new UpdateArticleRequest("new title", "new content");
+        UpdateArticleRequest request = new UpdateArticleRequest("new title", "new content", Category.TREE, "새 요약");
 
         // when
         ResultActions result = mockMvc.perform(put(url, savedArticle.getId())
@@ -168,6 +169,8 @@ class BlogApiControllerTest {
         Article article = blogRepository.findById(savedArticle.getId()).get();
         assertThat(article.getTitle()).isEqualTo("new title");
         assertThat(article.getContent()).isEqualTo("new content");
+        assertThat(article.getCategory()).isEqualTo(Category.TREE);
+        assertThat(article.getSummary()).isEqualTo("새 요약");
     }
 
     @DisplayName("findArticle: 없는 아티클을 조회하면 404와 에러 메시지를 응답한다.")
@@ -193,7 +196,7 @@ class BlogApiControllerTest {
         // given
         final String url = "/api/articles/{id}";
         Article savedArticle = createArticle(otherUser());
-        UpdateArticleRequest request = new UpdateArticleRequest("new title", "new content");
+        UpdateArticleRequest request = new UpdateArticleRequest("new title", "new content", Category.TREE, "새 요약");
 
         // when
         ResultActions result = mockMvc.perform(put(url, savedArticle.getId())
@@ -232,7 +235,7 @@ class BlogApiControllerTest {
     public void addArticle_invalid() throws Exception {
         // given
         final String url = "/api/articles";
-        final String requestBody = objectMapper.writeValueAsString(new AddArticleRequest(" ", ""));
+        final String requestBody = objectMapper.writeValueAsString(new AddArticleRequest(" ", "", null, null));
 
         // when
         ResultActions result = mockMvc.perform(post(url)
@@ -245,9 +248,81 @@ class BlogApiControllerTest {
         result.andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("입력값을 확인해 주세요."))
                 .andExpect(jsonPath("$.errors.title").value("제목을 입력해 주세요."))
-                .andExpect(jsonPath("$.errors.content").value("내용을 입력해 주세요."));
+                .andExpect(jsonPath("$.errors.content").value("내용을 입력해 주세요."))
+                .andExpect(jsonPath("$.errors.category").value("카테고리를 골라 주세요."));
 
         assertThat(blogRepository.findAll()).isEmpty();
+    }
+
+    @DisplayName("글 읽기는 로그인하지 않아도 된다. 이때 editable은 false")
+    @Test
+    public void readWithoutLogin() throws Exception {
+        Article savedArticle = createArticle(user);
+
+        mockMvc.perform(get("/api/articles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(savedArticle.getId()))
+                .andExpect(jsonPath("$[0].editable").value(false));
+        mockMvc.perform(get("/api/articles/{id}", savedArticle.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.editable").value(false));
+    }
+
+    @DisplayName("editable: 작성자가 보면 true, 다른 회원이 보면 false")
+    @Test
+    public void editable() throws Exception {
+        Article savedArticle = createArticle(user);
+
+        mockMvc.perform(get("/api/articles/{id}", savedArticle.getId()).with(loginAs(user)))
+                .andExpect(jsonPath("$.editable").value(true));
+        mockMvc.perform(get("/api/articles/{id}", savedArticle.getId()).with(loginAs(otherUser())))
+                .andExpect(jsonPath("$.editable").value(false));
+    }
+
+    @DisplayName("목록: category로 거를 수 있다. 응답에 category, summary, excerpt가 있다")
+    @Test
+    public void filterByCategory() throws Exception {
+        blogRepository.save(Article.builder().author(user).title("일상 글").content("오늘은\n산책을   했다.")
+                .category(Category.DAILY).build());
+        blogRepository.save(Article.builder().author(user).title("학습 글").content("본문").summary("직접 쓴 요약")
+                .category(Category.STUDY).build());
+
+        mockMvc.perform(get("/api/articles").param("category", "STUDY"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].title").value("학습 글"))
+                .andExpect(jsonPath("$[0].category").value("STUDY"))
+                .andExpect(jsonPath("$[0].summary").value("직접 쓴 요약"))
+                .andExpect(jsonPath("$[0].excerpt").value("직접 쓴 요약"));
+
+        // 요약이 없으면 본문 앞부분 (줄바꿈과 연속 공백은 한 칸으로)
+        mockMvc.perform(get("/api/articles").param("category", "DAILY"))
+                .andExpect(jsonPath("$[0].summary").doesNotExist())
+                .andExpect(jsonPath("$[0].excerpt").value("오늘은 산책을 했다."));
+
+        mockMvc.perform(get("/api/articles"))
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @DisplayName("요약이 없고 본문이 길면 120자에서 자르고 …를 붙인다")
+    @Test
+    public void longExcerpt() throws Exception {
+        String content = "가".repeat(130);
+        blogRepository.save(Article.builder().author(user).title("긴 글").content(content)
+                .category(Category.DAILY).build());
+
+        mockMvc.perform(get("/api/articles"))
+                .andExpect(jsonPath("$[0].excerpt").value("가".repeat(120) + "…"));
+    }
+
+    @DisplayName("/api/me: 로그인하지 않으면 401, 로그인하면 blog 닉네임")
+    @Test
+    public void me() throws Exception {
+        mockMvc.perform(get("/api/me"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/me").with(loginAs(user)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nickname").value("작성자"));
     }
 
     private Article createArticle(User author) {
@@ -255,6 +330,7 @@ class BlogApiControllerTest {
                 .title("title")
                 .author(author)
                 .content("content")
+                .category(Category.DAILY)
                 .build());
     }
 
