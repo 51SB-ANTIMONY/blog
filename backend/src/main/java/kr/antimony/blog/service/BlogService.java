@@ -1,6 +1,7 @@
 package kr.antimony.blog.service;
 
 import kr.antimony.blog.domain.Article;
+import kr.antimony.blog.domain.User;
 import kr.antimony.blog.dto.AddArticleRequest;
 import kr.antimony.blog.dto.UpdateArticleRequest;
 import kr.antimony.blog.exception.ArticleForbiddenException;
@@ -17,9 +18,12 @@ import java.util.List;
 @Service
 public class BlogService {
     private final BlogRepository blogRepository;
+    private final UserService userService;
 
-    public Article save(AddArticleRequest request, String userName) {
-        return blogRepository.save(request.toEntity(userName));
+    // accountsSub: 로그인한 사용자의 이름(Authentication.getName()), 즉 ID 토큰의 sub
+    public Article save(AddArticleRequest request, String accountsSub) {
+        User author = userService.findByAccountsSub(accountsSub);
+        return blogRepository.save(request.toEntity(author));
     }
 
     // 최신 글이 먼저 오도록 id 내림차순
@@ -50,8 +54,8 @@ public class BlogService {
     }
 
     private static void authorizeArticleAuthor(Article article) {
-        String userName = SecurityContextHolder.getContext().getAuthentication().getName();
-        if (!article.getAuthor().equals(userName)) {
+        String accountsSub = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!article.getAuthor().getAccountsSub().equals(accountsSub)) {
             throw new ArticleForbiddenException();
         }
     }

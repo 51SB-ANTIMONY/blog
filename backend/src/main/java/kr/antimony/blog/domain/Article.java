@@ -27,8 +27,10 @@ public class Article {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "author", nullable = false)
-    private String author;
+    // 작성자. 작성자 정보가 필요할 때만 읽도록 지연 로딩한다.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "author_id", nullable = false)
+    private User author;
 
     @CreatedDate
     @Column(name = "created_at")
@@ -39,7 +41,7 @@ public class Article {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Article(String author, String title, String content) {
+    public Article(User author, String title, String content) {
         this.author = author;
         this.title = title;
         this.content = content;

@@ -3,6 +3,7 @@ package kr.antimony.blog.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import kr.antimony.blog.domain.Article;
+import kr.antimony.blog.domain.User;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,7 +19,7 @@ public class AddArticleRequest {
     @NotBlank(message = "내용을 입력해 주세요.")
     private String content;
 
-    public Article toEntity(String author) {
+    public Article toEntity(User author) {
         return Article.builder()
                 .title(title)
                 .content(content)

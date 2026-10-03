@@ -5,76 +5,35 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.Collection;
-import java.util.List;
-
+// blog의 회원. 아이디, 비밀번호, 이메일 같은 계정 정보는 accounts에만 있고,
+// blog는 accounts 회원과 연결할 값(sub)과 화면에 보여 줄 닉네임만 가진다.
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 @Entity
-public class User implements UserDetails {
+public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", updatable = false)
     private Long id;
 
-    // 아이디·비밀번호 로그인에서 쓰는 아이디
-    // TODO: 회원가입 로직을 다듬은 뒤 nullable = false, unique = true로 변경
-    @Column(name = "uid")
-    private String uid;
+    // accounts가 발급한 ID 토큰의 sub (accounts의 회원 id). 로그인 방식과 상관없이 같은 사람이면 같은 값이다.
+    @Column(name = "accounts_sub", nullable = false, unique = true, updatable = false)
+    private String accountsSub;
 
-    @Column(name = "email", nullable = false, unique = true)
-    private String email;
-
-    @Column(name = "password")
-    private String password;
-
-    @Column(name = "nickname", nullable = false, unique = true)
+    // accounts의 닉네임을 로그인할 때마다 복사해 둔다. 중복 검사는 accounts가 한다.
+    @Column(name = "nickname", nullable = false)
     private String nickname;
 
     @Builder
-    public User(String uid, String email, String password, String nickname) {
-        this.uid = uid;
-        this.email = email;
-        this.password = password;
+    public User(String accountsSub, String nickname) {
+        this.accountsSub = accountsSub;
         this.nickname = nickname;
     }
 
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("user"));
-    }
-
-    @Override
-    public String getUsername() {
-        return uid;
-    }
-
-    @Override
-    public String getPassword() {
-        return password;
-    }
-    @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
-
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return true;
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
     }
 }
