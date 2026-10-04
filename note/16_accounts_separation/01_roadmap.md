@@ -43,7 +43,7 @@ blog 서버가 직접 하던 로그인(Google 로그인, JWT 발급)을 떼어 �
 | **4단계** 저장소 분리 | `accounts/`를 새 Git 저장소(`51SB-ANTIMONY/accounts`)로 옮긴다 | 완료 | [계획·결과](./10_step4_repository_split.md) |
 | **5단계** 운영 준비 | 운영에 필요한 코드와 설정: MySQL, Flyway, 서명 키·토큰·세션 영구 저장, 메일, 환경 변수, HTTPS 대비. 미뤄 둔 브라우저 확인 포함 | 완료 (발송 횟수 제한·로컬 리허설은 배포 뒤로) | [계획](./11_step5_production_readiness_plan.md), [구현·확인·트러블슈팅](./12_step5_production_readiness.md) |
 | **6단계** 실제 배포 | Elastic Beanstalk + RDS + Vercel + Cloudflare로 실제 주소에서 운영한다 | 배포 완료 (브라우저 전체 흐름 확인 남음) | [구성·순서·트러블슈팅](./13_step6_deployment_plan.md), [CI/CD](./14_step6_cicd.md) |
-| **7단계** 아이디·비밀번호 설정과 변경 | 소셜로만 가입한 회원이 아이디·비밀번호를 정하고, 비밀번호가 있는 회원이 로그인한 채로 비밀번호를 바꾼다 | 구현 완료 (운영 확인 남음) | [계획·구현·확인](./15_step7_account_credentials_plan.md) |
+| **7단계** 계정 설정 (아이디·비밀번호·이메일, 관리자) | 소셜로만 가입한 회원이 아이디·비밀번호를 정하고, 로그인한 채로 비밀번호와 이메일을 바꾼다. 관리자 테이블(관리자·공동 관리자) | 구현 완료 (운영 확인 남음) | [계획·구현·확인](./15_step7_account_credentials_plan.md) |
 
 ## 4. 6단계 실제 배포 (아직 세부 계획 전)
 코드와 설정은 5단계에서 준비하고, 6단계에서는 실제로 운영할 곳을 꾸린다.
