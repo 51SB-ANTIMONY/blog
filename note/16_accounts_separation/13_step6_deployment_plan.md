@@ -179,7 +179,19 @@ Google Cloud Console의 OAuth 클라이언트에 승인된 리디렉션 URI `htt
 | PC·모바일, 라이트·다크 | 프로토타입대로 (3단계에서 미룬 브라우저 확인) |
 
 ### 배포해 봐야 아는 것
-**Vercel이 `X-Forwarded-Host`를 넘기는지.** Spring은 이 헤더로 "사용자가 접속한 주소"를 알아서 redirect_uri와 리다이렉트 주소를 만든다. 로컬의 Next.js는 넘긴다는 것을 확인했다. Vercel도 넘기지 않으면, 로그인 후 `blog-api.antimony.kr`로 돌아가는 식으로 주소가 어긋난다. 그러면 Spring에 공개 주소를 직접 설정하는 방식으로 고친다.
+**Vercel이 `X-Forwarded-Host`를 넘기는지.** Spring은 이 헤더로 "사용자가 접속한 주소"를 알아서 redirect_uri와 리다이렉트 주소를 만든다. 로컬의 Next.js는 넘긴다는 것을 확인했다. Vercel도 넘기지 않으면, 로그인 후 `blog-api.antimony.kr`로 돌아가는 식으로 주소가 어긋난다.
+
+→ **결과: Vercel은 넘기지 않았다.** `accounts.antimony.kr/oauth2/authorize`의 리다이렉트가 `https://accounts-api.antimony.kr/login`으로 만들어졌다. 같은 요청을 Cloudflare 주소로 직접 보내며 헤더를 넣으면 `accounts.antimony.kr/login`이 나와서, Cloudflare와 Nginx는 헤더를 그대로 넘기고 Vercel의 rewrites만 빠뜨린다는 것을 확인했다.
+
+**고친 방법:** `next.config.ts`의 rewrites를 지우고, 두 화면 저장소에 `frontend/proxy.ts`를 만들었다. Spring이 맡는 경로를 여기서 Spring으로 넘기면서 헤더를 직접 붙인다.
+| 헤더 | 값 |
+|---|---|
+| `X-Forwarded-Host` | 브라우저가 보낸 Host (`accounts.antimony.kr`, 로컬은 `localhost:3001`) |
+| `X-Forwarded-Proto` | 브라우저가 접속한 방식 (`https`, 로컬은 `http`) |
+| `X-Forwarded-Port` | 지운다. Next.js가 자기 서버 포트를 붙여 보내서, 로컬 확인에서 `accounts.antimony.kr:3101/login`처럼 포트가 섞였다 |
+
+> **proxy.ts란?**
+> Next.js 16에서 요청이 화면에 닿기 전에 실행되는 코드다(15까지의 이름은 middleware). `matcher`에 적은 경로만 실행되고, `NextResponse.rewrite`로 요청을 다른 서버에 넘길 때 요청 헤더를 바꿔서 보낼 수 있다.
 
 ## 6. 비용 (대략, 서울 리전, 가장 작은 사양)
 | 항목 | 월 비용 | 프리 티어 (가입 후 12개월) |
