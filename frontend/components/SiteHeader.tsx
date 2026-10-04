@@ -1,42 +1,20 @@
 import Link from "next/link";
-import { CATEGORIES } from "@/lib/categories";
 import { ACCOUNTS_URL, LOGIN_PATH } from "@/lib/links";
 import type { Me } from "@/lib/types";
 import Logo from "./Logo";
 import LogoutButton from "./LogoutButton";
-import { PencilIcon, SearchIcon, UserIcon } from "./icons";
+import { PencilIcon, SearchIcon } from "./icons";
 
 type Props = {
   me: Me | null;
-  // home: 카테고리 탭과 검색이 있는 홈 헤더 / post: 글 상세 헤더
+  // home: 홈 헤더 (글쓰기 버튼이 채워진 색) / post: 글 상세 헤더 (글쓰기 버튼이 테두리만)
   variant: "home" | "post";
-  // 홈에서 고른 카테고리 (전체면 undefined)
-  currentSlug?: string;
 };
 
-function tabHref(slug?: string) {
-  return slug ? `/?category=${slug}` : "/";
-}
-
-export function CategoryTabs({ currentSlug, className }: { currentSlug?: string; className: string }) {
-  const tabs = [{ slug: undefined, label: "전체" }, ...CATEGORIES.map((c) => ({ slug: c.slug, label: c.label }))];
-  return (
-    <nav aria-label="주 메뉴" className={className}>
-      {tabs.map((tab) => (
-        <Link key={tab.label} href={tabHref(tab.slug)} className="tab" aria-current={tab.slug === currentSlug ? "page" : undefined}>
-          {tab.label}
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
-export default function SiteHeader({ me, variant, currentSlug }: Props) {
+export default function SiteHeader({ me, variant }: Props) {
   return (
     <header className={variant === "post" ? "header is-post" : "header"}>
       <Logo />
-
-      {variant === "home" && <CategoryTabs currentSlug={currentSlug} className="tabs only-desktop" />}
 
       {/* PC */}
       <div className="header-right only-desktop">
@@ -45,16 +23,14 @@ export default function SiteHeader({ me, variant, currentSlug }: Props) {
         </button>
         {me ? (
           <div className="auth">
-            <span className="auth-name">
+            {/* 닉네임을 누르면 accounts의 내 계정 화면 */}
+            <a href={`${ACCOUNTS_URL}/account`} className="auth-name">
               <b>{me.nickname}</b>님
-            </span>
-            <Link href="/write" className="pill-outline">
+            </a>
+            <Link href="/write" className={variant === "home" ? "pill-primary is-write" : "pill-outline"}>
               <PencilIcon />
               글쓰기
             </Link>
-            <a href={`${ACCOUNTS_URL}/account`} className="pill-primary">
-              마이페이지
-            </a>
             <LogoutButton />
           </div>
         ) : (
@@ -81,9 +57,7 @@ export default function SiteHeader({ me, variant, currentSlug }: Props) {
             <Link href="/write" className="icon-btn" aria-label="글쓰기">
               <PencilIcon size={20} />
             </Link>
-            <a href={`${ACCOUNTS_URL}/account`} className="icon-btn" aria-label={`${me.nickname}님 마이페이지`}>
-              <UserIcon />
-            </a>
+            {variant === "home" && <LogoutButton className="text-btn is-mobile" />}
           </>
         ) : (
           <a href={LOGIN_PATH} className="pill-login-mobile">

@@ -1,4 +1,4 @@
-export type Category = "DAILY" | "STUDY" | "TREE";
+export type Category = "DAILY" | "STUDY" | "NEWS";
 
 export type Article = {
   id: number;

@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Antimony Blog",
-  description: "일상 · 학습 · 시냇가에 심은 나무",
+  description: "일상 · 학습 · 뉴스",
 };
 
 export const viewport: Viewport = {

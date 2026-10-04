@@ -1,119 +1,182 @@
 import Link from "next/link";
-import LogoutButton from "@/components/LogoutButton";
+import MobileFilter from "@/components/MobileFilter";
+import NewsList from "@/components/NewsList";
 import ReturnAfterLogin from "@/components/ReturnAfterLogin";
 import SiteFooter from "@/components/SiteFooter";
-import SiteHeader, { CategoryTabs } from "@/components/SiteHeader";
-import { TreeIcon } from "@/components/icons";
-import { CATEGORIES, categoryBySlug, categoryLabel } from "@/lib/categories";
+import SiteHeader from "@/components/SiteHeader";
+import SortSelect from "@/components/SortSelect";
+import { CATEGORIES, categoryLabel } from "@/lib/categories";
 import { formatDate } from "@/lib/format";
+import { buildHome, homeHref, type HomeQuery } from "@/lib/home";
 import { fetchArticles, fetchMe } from "@/lib/server";
 
-type Props = { searchParams: Promise<{ category?: string }> };
+type Props = { searchParams: Promise<{ category?: string; year?: string; sort?: string; page?: string }> };
 
-const QUOTE = "그는 시냇가에 심은 나무가 철을 따라 열매를 맺으며 그 잎사귀가 마르지 아니함 같으니";
+type Home = ReturnType<typeof buildHome>;
 
-function Quote() {
+// 카테고리, 기간 필터. PC는 왼쪽 목록(side), 모바일은 필터 상자 안의 칩(chips)
+function Filters({ home, variant }: { home: Home; variant: "side" | "chips" }) {
+  const { query } = home;
+  const itemClass = variant === "side" ? "filter-row" : "chip-btn";
+  // 필터를 바꾸면 정렬은 그대로 두고 첫 쪽부터 보여 준다.
+  const href = (change: Partial<HomeQuery>) => homeHref({ ...query, ...change, page: 1 });
+  const cats = [{ slug: undefined, code: undefined, label: "전체" }, ...CATEGORIES];
+  const years: { year?: string; label: string; count: number }[] = [
+    { label: variant === "side" ? "전체 기간" : "전체", count: home.yearTotal },
+    ...home.years.map((y) => ({ year: y.year, label: y.year, count: y.count })),
+  ];
+
   return (
-    <div className="quote">
-      <div className="quote-label">
-        <span className="only-desktop">
-          <TreeIcon />
+    <>
+      <div className="filter-group">
+        <span className="filter-label">카테고리</span>
+        <div className={variant === "side" ? "filter-rows" : "chip-row"}>
+          {cats.map((c) => (
+            <Link
+              key={c.label}
+              href={href({ category: c.slug })}
+              className={itemClass}
+              aria-current={query.category === c.slug ? "true" : undefined}
+            >
+              <span>{c.label}</span>
+              <span className="filter-count">{home.countByCategory(c.code)}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+      <div className="filter-group">
+        <span className="filter-label">기간</span>
+        <div className={variant === "side" ? "filter-rows" : "chip-row"}>
+          {years.map((y) => (
+            <Link
+              key={y.label}
+              href={href({ year: y.year })}
+              className={itemClass}
+              aria-current={query.year === y.year ? "true" : undefined}
+            >
+              <span>{y.label}</span>
+              <span className="filter-count">{y.count}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+      <div className="filter-group is-disabled">
+        <span className="filter-label">
+          태그 <span className="soon">(준비 중)</span>
         </span>
-        시냇가에 심은 나무
       </div>
-      <blockquote>{QUOTE}</blockquote>
-      <div className="quote-foot">
-        <span>시편 1:3</span>
-        <Link href="/?category=tree" className="quote-btn">
-          묵상 글 보기 →
+    </>
+  );
+}
+
+function Pagination({ home }: { home: Home }) {
+  const { query, totalPages } = home;
+  const page = query.page ?? 1;
+  return (
+    <nav aria-label="페이지" className="pager">
+      {page > 1 && (
+        <Link href={homeHref({ ...query, page: page - 1 })} aria-label="이전 페이지" className="pager-item">
+          ←
         </Link>
-      </div>
-    </div>
+      )}
+      {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+        <Link
+          key={n}
+          href={homeHref({ ...query, page: n })}
+          className="pager-item"
+          aria-current={n === page ? "page" : undefined}
+        >
+          {n}
+        </Link>
+      ))}
+      {page < totalPages && (
+        <Link href={homeHref({ ...query, page: page + 1 })} aria-label="다음 페이지" className="pager-item">
+          →
+        </Link>
+      )}
+    </nav>
   );
 }
 
 export default async function HomePage({ searchParams }: Props) {
-  const { category: slug } = await searchParams;
-  const category = categoryBySlug(slug);
-  const [me, articles] = await Promise.all([fetchMe(), fetchArticles(category?.code)]);
+  const [me, articles, raw] = await Promise.all([fetchMe(), fetchArticles(), searchParams]);
+  const home = buildHome(articles, raw);
+  const { query } = home;
+  const title = home.category ? home.category.label : "모든 글";
+  const countLabel = `${home.total}개의 글`;
+  const resetHref = homeHref({ sort: query.sort });
 
   return (
     <div className="page">
       {me && <ReturnAfterLogin />}
-      <SiteHeader me={me} variant="home" currentSlug={category?.slug} />
-      <CategoryTabs currentSlug={category?.slug} className="tabs-mobile only-mobile" />
+      <SiteHeader me={me} variant="home" />
 
-      <main className="content">
-        <section className="hero">
-          <div className="hero-text">
-            {me && (
-              <div className="greeting only-mobile">
-                <span>
-                  <b>{me.nickname}</b>님, 반가워요
-                </span>
-                <LogoutButton />
+      <section aria-labelledby="news-h" className="news">
+        <div className="news-side">
+          <h2 id="news-h">News</h2>
+          <Link href="/?category=news" className="news-more">
+            <span className="only-desktop">지난 소식 모두 보기 →</span>
+            <span className="only-mobile">모두 보기 →</span>
+          </Link>
+        </div>
+        <NewsList items={home.news} />
+      </section>
+
+      <div className="home-body">
+        <aside aria-label="필터" className="filters only-desktop">
+          <div className="filter-top">
+            <span>필터</span>
+            <Link href={resetHref} className="reset-link">
+              초기화
+            </Link>
+          </div>
+          <div className="filter-group">
+            <label htmlFor="sort" className="filter-label">
+              정렬
+            </label>
+            <SortSelect id="sort" query={query} />
+          </div>
+          <Filters home={home} variant="side" />
+        </aside>
+
+        <main className="list">
+          <div className="list-head only-desktop">
+            <h2>{title}</h2>
+            <span>{countLabel}</span>
+          </div>
+          <div className="mobile-filter only-mobile">
+            <MobileFilter title={title} countLabel={countLabel} active={home.activeFilters}>
+              <div className="filter-group">
+                <span className="filter-label">정렬</span>
+                <SortSelect id="sort-m" label="정렬" query={query} />
               </div>
-            )}
-            <div className="kicker only-desktop">DAILY · STUDY · ROOTED</div>
-            <h1>
-              천천히 살고,
-              <br />
-              깊이 배우고,
-              <br />
-              뿌리 내리는 기록
-            </h1>
-            <p className="hero-desc">
-              <span className="only-desktop">[블로그 한 줄 소개 — 어떤 이야기를 쓰는 곳인지 적어 주세요.]</span>
-              <span className="only-mobile">[블로그 한 줄 소개]</span>
-            </p>
+              <Filters home={home} variant="chips" />
+              <div className="panel-foot">
+                <Link href={resetHref} className="reset-link">
+                  초기화
+                </Link>
+              </div>
+            </MobileFilter>
           </div>
-          <div className="only-desktop">
-            <Quote />
-          </div>
-        </section>
 
-        <section className="quote-wrap only-mobile" style={{ flexDirection: "column" }}>
-          <Quote />
-        </section>
-
-        <section className="cats only-desktop">
-          {CATEGORIES.map((c) => (
-            <Link key={c.slug} href={`/?category=${c.slug}`} className="cat">
-              <span className="cat-dot" />
-              <span className="cat-label">{c.label}</span>
-              <span className="cat-desc">{c.desc}</span>
-              <span className="cat-more">글 보러 가기 →</span>
+          {home.posts.map((article) => (
+            <Link key={article.id} href={`/articles/${article.id}`} className="post-item">
+              <div className="post-meta">
+                <span className="tag">{categoryLabel(article.category)}</span>
+                <span className="date">{formatDate(article.createdAt)}</span>
+              </div>
+              <span className="post-title">{article.title}</span>
+              <span className="post-excerpt">{article.excerpt}</span>
             </Link>
           ))}
-        </section>
-
-        <section id="posts" className="posts">
-          <div className="posts-head">
-            <h2>{category ? category.label : "최근 글"}</h2>
-            {category && (
-              <Link href="/" className="only-desktop">
-                모든 글 보기 →
-              </Link>
-            )}
-          </div>
-          <div className="post-grid">
-            {articles.length === 0 ? (
-              <p className="empty">아직 글이 없어요.</p>
-            ) : (
-              articles.map((article) => (
-                <Link key={article.id} href={`/articles/${article.id}`} className="post-item">
-                  <div className="post-meta">
-                    <span className="tag">{categoryLabel(article.category)}</span>
-                    <span className="date">{formatDate(article.createdAt)}</span>
-                  </div>
-                  <span className="post-title">{article.title}</span>
-                  <span className="post-excerpt">{article.excerpt}</span>
-                </Link>
-              ))
-            )}
-          </div>
-        </section>
-      </main>
+          {home.posts.length === 0 && (
+            <p className="empty">
+              조건에 맞는 글이 없어요.<span className="only-desktop-inline"> 필터를 바꿔 보세요.</span>
+            </p>
+          )}
+          <Pagination home={home} />
+        </main>
+      </div>
 
       <SiteFooter />
     </div>
