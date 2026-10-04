@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.web.servlet.MockMvc;
@@ -17,6 +18,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -28,6 +30,9 @@ class AccountsLoginTest {
 
     @Autowired
     ClientRegistrationRepository clientRegistrationRepository;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     @DisplayName("로그인 시작: accounts의 권한 요청 주소로 보낸다. client_id, 범위, PKCE, nonce가 들어 있다.")
     @Test
@@ -89,6 +94,18 @@ class AccountsLoginTest {
         assertThat(provider.getConfigurationMetadata().get("end_session_endpoint")).isEqualTo("http://localhost:3001/connect/logout");
         assertThat(provider.getTokenUri()).isEqualTo("http://localhost:9000/oauth2/token");
         assertThat(provider.getJwkSetUri()).isEqualTo("http://localhost:9000/oauth2/jwks");
+    }
+
+    @DisplayName("세션: 로그인 시작 때 저장하는 값(state, nonce 등)이 DB(SPRING_SESSION)에 저장되고, 쿠키 이름은 BLOG_SESSION이다.")
+    @Test
+    void sessionStoredInDatabase() throws Exception {
+        Integer before = jdbcTemplate.queryForObject("select count(*) from SPRING_SESSION", Integer.class);
+
+        mockMvc.perform(get("/oauth2/authorization/accounts"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(cookie().exists("BLOG_SESSION"));
+
+        assertThat(jdbcTemplate.queryForObject("select count(*) from SPRING_SESSION", Integer.class)).isEqualTo(before + 1);
     }
 
     @DisplayName("로그인하지 않은 API 요청은 accounts로 보내지 않고 401로 응답한다.")

@@ -31,6 +31,8 @@ dependencies {
     // DB 테이블을 SQL 스크립트로 관리 (src/main/resources/db/migration)
     implementation 'org.springframework.boot:spring-boot-starter-flyway'
     runtimeOnly 'org.flywaydb:flyway-mysql'
+    // 세션을 서버 메모리 대신 DB에 저장 (재시작해도 로그인 유지)
+    implementation 'org.springframework.boot:spring-boot-starter-session-jdbc'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     implementation 'org.springframework.boot:spring-boot-h2console'
