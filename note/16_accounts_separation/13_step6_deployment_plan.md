@@ -245,3 +245,9 @@ Google Cloud Console의 OAuth 클라이언트에 승인된 리디렉션 URI `htt
 - **증상**: 스크립트를 두 곳에 두자 `ebBundle`이 `The value for property 'filePermissions' is final and cannot be changed any further`로 실패했다.
 - **원인**: `filesMatching` 안에서 `filePermissions { }`를 쓰면, 맞는 파일이 둘 이상일 때 두 번째 파일에서 값을 바꾸지 못한다(Gradle 9.2에서 확인).
 - **해결**: 파일마다 권한을 정하는 `permissions { unix('rwxr-xr-x') }`로 바꾸고, 대상을 `**/*.sh`로 했다. zip 안의 두 스크립트가 `rwxr-xr-x`인 것을 확인했다.
+
+### 8. health OK 직후 100% 5xx: Spring이 8080 포트로 떴다
+- **증상**: blog 환경이 health OK가 된 직후, 모든 요청이 502(Elastic Beanstalk 경고 `100.0 % of the requests are failing with HTTP 5xx`). Nginx 로그에 `connect() failed (111: Connection refused) while connecting to upstream ... 127.0.0.1:5000`.
+- **원인**: Spring 로그에서 04:38에는 `Tomcat initialized with port 5000`, 04:40 배포 뒤에는 `port 8080`. 환경 속성 `PORT`가 빠져서 Spring이 기본값(`${PORT:8080}`)으로 떴다. Nginx는 5000으로 넘기므로 연결이 거부됐다. Spring 자체는 정상이었다.
+- **해결**: 환경 속성에 `PORT=5000`을 다시 넣는다.
+- **교훈**: 환경 속성을 고칠 때 다른 속성이 함께 빠지지 않았는지 목록 전체를 확인한다. Spring이 멈춘 것처럼 보여도 로그의 `Tomcat started on port`부터 본다.
