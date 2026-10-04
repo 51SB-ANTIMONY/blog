@@ -2,6 +2,7 @@ package kr.antimony.blog.config;
 
 import kr.antimony.blog.config.oauth.AccountsOidcUserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,9 +10,13 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
@@ -20,6 +25,7 @@ import static org.springframework.boot.security.autoconfigure.web.servlet.PathRe
 // 로그인은 accounts(OIDC 인가 서버)에 맡긴다.
 // accounts에서 로그인하고 돌아오면 blog는 세션(BLOG_SESSION 쿠키)으로 로그인 상태를 기억한다.
 // 화면은 blog frontend(Next.js)가 그리고, 이 서버는 API와 로그인·로그아웃 처리만 맡는다.
+@Slf4j
 @RequiredArgsConstructor
 @Configuration
 public class SecurityConfig {
@@ -53,7 +59,8 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(accountsOidcUserService))
                         // 로그인 후 돌아갈 요청이 없으면 화면의 첫 페이지로
-                        .defaultSuccessUrl("/"))
+                        .defaultSuccessUrl("/")
+                        .failureHandler(loginFailureHandler()))
                 // 로그아웃(POST /logout): blog 세션을 지운 뒤 accounts의 로그아웃 주소로 보내 accounts 로그인도 끝낸다.
                 .logout(logout -> logout
                         .logoutSuccessHandler(accountsLogoutSuccessHandler()))
@@ -63,6 +70,22 @@ public class SecurityConfig {
                                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
                                 PathPatternRequestMatcher.withDefaults().matcher("/api/**")))
                 .build();
+    }
+
+    // accounts에서 돌아온 로그인 처리(/login/oauth2/code/accounts)가 실패했을 때.
+    // 기본값은 /login?error로 보내는데, 화면(Next.js)에 그 주소가 없어 404가 난다. 그래서 첫 화면으로 보낸다.
+    // 같은 로그인 응답이 두 번 처리되면, 첫 번째는 성공하고 두 번째는 "저장해 둔 로그인 요청 없음"으로 실패할 수 있다.
+    // 그때도 첫 화면으로 가면 로그인된 상태로 보인다. 원인을 찾을 수 있도록 실패 이유와 그 시점의 로그인 여부를 남긴다.
+    private AuthenticationFailureHandler loginFailureHandler() {
+        return (request, response, exception) -> {
+            String reason = exception instanceof OAuth2AuthenticationException oauth2
+                    ? oauth2.getError().getErrorCode()
+                    : exception.getClass().getSimpleName();
+            Authentication current = SecurityContextHolder.getContext().getAuthentication();
+            log.warn("accounts 로그인 처리 실패: reason={}, message={}, alreadyLoggedIn={}",
+                    reason, exception.getMessage(), current != null && current.isAuthenticated());
+            response.sendRedirect("/");
+        };
     }
 
     // accounts의 /connect/logout?id_token_hint=...&post_logout_redirect_uri=http://localhost:3000/ 로 보낸다.

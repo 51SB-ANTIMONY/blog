@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -107,6 +108,14 @@ class AccountsLoginTest {
                 .andExpect(cookie().exists("BLOG_SESSION"));
 
         assertThat(jdbcTemplate.queryForObject("select count(*) from SPRING_SESSION", Integer.class)).isEqualTo(before + 1);
+    }
+
+    @DisplayName("로그인 처리 실패(저장해 둔 로그인 요청 없음): 화면에 없는 /login?error 대신 첫 화면(/)으로 보낸다.")
+    @Test
+    void loginFailureRedirectsToHome() throws Exception {
+        mockMvc.perform(get("/login/oauth2/code/accounts").param("code", "unknown").param("state", "unknown"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/"));
     }
 
     @DisplayName("상태 확인: /actuator/health는 로그인 없이 200과 UP을 응답한다. (로드밸런서의 헬스 체크)")
