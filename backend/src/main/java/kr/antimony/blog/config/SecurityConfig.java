@@ -43,7 +43,8 @@ public class SecurityConfig {
                 // CSRF 토큰을 XSRF-TOKEN 쿠키로 내려 주고, X-XSRF-TOKEN 헤더 또는 _csrf 폼 값으로 받는다.
                 .csrf(csrf -> csrf.spa())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/csrf").permitAll()
+                        // 로드밸런서의 헬스 체크
+                        .requestMatchers("/actuator/health", "/api/csrf").permitAll()
                         // 글 읽기는 누구나. 쓰기, 수정, 삭제는 로그인 필요
                         .requestMatchers(HttpMethod.GET, "/api/articles", "/api/articles/*").permitAll()
                         .requestMatchers("/api/**").authenticated()

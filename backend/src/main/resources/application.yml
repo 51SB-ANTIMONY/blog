@@ -27,6 +27,13 @@ spring:
       # 세션 테이블은 Flyway 스크립트(SPRING_SESSION)로 만든다
       initialize-schema: never
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # 외부에는 상태 확인(/actuator/health)만 공개한다
+        include: health
+
 server:
   port: ${PORT:8080}
   # blog 화면(Next.js)이 요청을 넘겨줄 때 붙이는 X-Forwarded-Host/Proto를 보고,

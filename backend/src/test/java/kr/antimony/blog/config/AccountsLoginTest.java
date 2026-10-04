@@ -19,6 +19,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -106,6 +107,14 @@ class AccountsLoginTest {
                 .andExpect(cookie().exists("BLOG_SESSION"));
 
         assertThat(jdbcTemplate.queryForObject("select count(*) from SPRING_SESSION", Integer.class)).isEqualTo(before + 1);
+    }
+
+    @DisplayName("상태 확인: /actuator/health는 로그인 없이 200과 UP을 응답한다. (로드밸런서의 헬스 체크)")
+    @Test
+    void health() throws Exception {
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
     }
 
     @DisplayName("로그인하지 않은 API 요청은 accounts로 보내지 않고 401로 응답한다.")

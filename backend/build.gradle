@@ -33,6 +33,8 @@ dependencies {
     runtimeOnly 'org.flywaydb:flyway-mysql'
     // 세션을 서버 메모리 대신 DB에 저장 (재시작해도 로그인 유지)
     implementation 'org.springframework.boot:spring-boot-starter-session-jdbc'
+    // 상태 확인 주소 /actuator/health (로드밸런서의 헬스 체크용)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     implementation 'org.springframework.boot:spring-boot-h2console'
