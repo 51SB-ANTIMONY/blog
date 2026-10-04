@@ -220,7 +220,10 @@ Google Cloud Console의 OAuth 클라이언트에 승인된 리디렉션 URI `htt
 - **원인 찾기**: 같은 요청을 Cloudflare 주소(`accounts-api`)로 직접 보내며 `X-Forwarded-Host: accounts.antimony.kr`을 넣으면 `accounts.antimony.kr/login`이 나왔다. Cloudflare와 Nginx는 헤더를 그대로 넘긴다. **Vercel을 거칠 때 사용자가 접속한 주소가 빠진다.**
 - **첫 시도 (실패)**: `next.config.ts`의 rewrites를 `proxy.ts`로 옮기고 `X-Forwarded-Host`, `X-Forwarded-Proto`를 직접 붙였다. 로컬에서는 맞게 나왔지만, push한 뒤에도 Vercel에서는 그대로 `accounts-api`였다. Vercel이 바깥 서버로 넘길 때 `X-Forwarded-Host`를 자기 값으로 다시 쓰는 것으로 보인다(Vercel 배포가 끝난 시점이었는지는 확인하지 못했다. 어느 쪽이든 아래 해결로 상관없어진다).
   - 로컬 확인 중 하나 더: Next.js가 자기 서버 포트를 `X-Forwarded-Port`로 붙여, 주소가 `accounts.antimony.kr:3101/login`처럼 나왔다.
-- **해결**: 표준 헤더 **`Forwarded: host="accounts.antimony.kr";proto=https`**(RFC 7239)로 보낸다. Spring은 `Forwarded`가 있으면 `X-Forwarded-*`를 보지 않으므로, Vercel이 무엇을 붙이든 영향이 없다. 포트는 host 안에 있을 때만 쓰므로 `X-Forwarded-Port` 문제도 함께 사라진다. 실제 API에 대해 `Forwarded`와 틀린 `X-Forwarded-Host`를 함께 보내 `Forwarded`가 이기는 것을 확인했다.
+- **두 번째 시도 (실패)**: 표준 헤더 **`Forwarded: host="accounts.antimony.kr";proto=https`**(RFC 7239)로 보냈다. Spring은 `Forwarded`가 있으면 `X-Forwarded-*`를 보지 않으므로, Vercel이 `X-Forwarded-Host`를 바꿔도 상관없을 것이라 봤다. 실제 API에 `Forwarded`와 틀린 `X-Forwarded-Host`를 함께 보내 `Forwarded`가 이기는 것도 확인했다. 그러나 Vercel에 배포된 뒤(같은 `proxy.ts`의 첫 화면 이동은 동작하는 것으로 배포를 확인)에도 그대로 `accounts-api`였다. **Vercel은 `proxy.ts`에서 바꾼 요청 헤더를 바깥 서버까지 넘기지 않는 것으로 보인다.** 어느 헤더가 어디서 빠지는지는 Vercel 내부라 확인하지 못했다.
+- **해결**: 헤더 전달을 Vercel에 맡기지 않는다. **EC2의 Nginx가 `Forwarded: host=accounts.antimony.kr;proto=https`를 붙여** Spring에 넘긴다(blog는 `blog.antimony.kr`). 저장소마다 Nginx 설정이 따로 있으므로 각자의 공개 주소를 적었다. `proxy.ts`의 `Forwarded`는 로컬 개발용으로 남긴다.
+  - 이 서버로 직접 들어오는 요청(blog Spring이 토큰을 교환하는 요청 등)도 같은 주소로 보이지만, 리다이렉트를 만들지 않는 요청이고 issuer는 설정값으로 고정되어 있어 영향이 없다.
+  - 나중에 AWS를 떠나면, 옮겨 갈 곳의 프록시에서 같은 헤더를 붙이거나 Spring에 공개 주소를 설정한다.
 
 > **Forwarded 헤더(RFC 7239)란?**
 > 중간 서버(프록시)가 "원래 요청이 어떤 주소, 어떤 방식(http/https)으로 들어왔는지"를 다음 서버에 알리는 표준 헤더다. `X-Forwarded-Host`, `X-Forwarded-Proto`는 이 표준이 나오기 전부터 쓰던 비표준 헤더다.
