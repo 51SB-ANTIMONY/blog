@@ -154,7 +154,7 @@ class BlogApiControllerTest {
         // given
         final String url = "/api/articles/{id}";
         Article savedArticle = createArticle(user);
-        UpdateArticleRequest request = new UpdateArticleRequest("new title", "new content", Category.TREE, "새 요약");
+        UpdateArticleRequest request = new UpdateArticleRequest("new title", "new content", Category.NEWS, "새 요약");
 
         // when
         ResultActions result = mockMvc.perform(put(url, savedArticle.getId())
@@ -169,7 +169,7 @@ class BlogApiControllerTest {
         Article article = blogRepository.findById(savedArticle.getId()).get();
         assertThat(article.getTitle()).isEqualTo("new title");
         assertThat(article.getContent()).isEqualTo("new content");
-        assertThat(article.getCategory()).isEqualTo(Category.TREE);
+        assertThat(article.getCategory()).isEqualTo(Category.NEWS);
         assertThat(article.getSummary()).isEqualTo("새 요약");
     }
 
@@ -196,7 +196,7 @@ class BlogApiControllerTest {
         // given
         final String url = "/api/articles/{id}";
         Article savedArticle = createArticle(otherUser());
-        UpdateArticleRequest request = new UpdateArticleRequest("new title", "new content", Category.TREE, "새 요약");
+        UpdateArticleRequest request = new UpdateArticleRequest("new title", "new content", Category.NEWS, "새 요약");
 
         // when
         ResultActions result = mockMvc.perform(put(url, savedArticle.getId())

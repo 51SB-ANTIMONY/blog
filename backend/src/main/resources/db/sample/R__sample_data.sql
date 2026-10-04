@@ -3,4 +3,5 @@
 INSERT INTO users (accounts_sub, nickname) VALUES ('sample', '예시 작성자');
 INSERT INTO article (title, content, category, summary, author_id, created_at, updated_at) VALUES ('제목 1', '내용 1', 'DAILY', NULL, (SELECT id FROM users WHERE accounts_sub = 'sample'), NOW(), NOW());
 INSERT INTO article (title, content, category, summary, author_id, created_at, updated_at) VALUES ('제목 2', '내용 2', 'STUDY', '요약 2', (SELECT id FROM users WHERE accounts_sub = 'sample'), NOW(), NOW());
-INSERT INTO article (title, content, category, summary, author_id, created_at, updated_at) VALUES ('제목 3', '내용 3', 'TREE', NULL, (SELECT id FROM users WHERE accounts_sub = 'sample'), NOW(), NOW());
+INSERT INTO article (title, content, category, summary, author_id, created_at, updated_at) VALUES ('제목 3', '내용 3', 'NEWS', NULL, (SELECT id FROM users WHERE accounts_sub = 'sample'), NOW(), NOW());
+INSERT INTO article (title, content, category, summary, author_id, created_at, updated_at) VALUES ('제목 4', '내용 4', 'NEWS', '요약 4', (SELECT id FROM users WHERE accounts_sub = 'sample'), NOW(), NOW());

@@ -90,7 +90,7 @@ article
 ├── id          BIGINT    PK, 자동 증가
 ├── title       VARCHAR   NOT NULL
 ├── content     VARCHAR   NOT NULL
-├── category    VARCHAR   NOT NULL   ← DAILY(일상), STUDY(학습), TREE(시냇가에 심은 나무)
+├── category    VARCHAR   NOT NULL   ← DAILY(일상), STUDY(학습), NEWS(뉴스)
 ├── summary     VARCHAR   (300자 이하, 선택)   ← 비우면 목록에 본문 앞부분
 ├── author_id   BIGINT    NOT NULL, FK → users.id
 ├── created_at  TIMESTAMP            (JPA Auditing)
@@ -105,7 +105,7 @@ article
 | 메서드 | URL | 설명 | 인증 | 성공 응답 |
 |---|---|---|---|---|
 | `POST` | `/api/articles` | 글 작성. 작성자는 로그인 사용자 | 필요 | 201 Created, 글 |
-| `GET` | `/api/articles?category=` | 글 목록 조회 (최신순). `category`(DAILY, STUDY, TREE)로 거를 수 있음 | 불필요 | 200 OK, 글 배열 |
+| `GET` | `/api/articles?category=` | 글 목록 조회 (최신순). `category`(DAILY, STUDY, NEWS)로 거를 수 있음 | 불필요 | 200 OK, 글 배열 |
 | `GET` | `/api/articles/{id}` | 글 상세 조회 | 불필요 | 200 OK, 글 |
 | `PUT` | `/api/articles/{id}` | 글 수정. **작성자만** | 필요 | 200 OK, 글 |
 | `DELETE` | `/api/articles/{id}` | 글 삭제. **작성자만** | 필요 | 204 No Content |
@@ -135,7 +135,7 @@ article
 |---|---|
 | `title` | 필수, 공백만은 안 됨, 255자 이하 |
 | `content` | 필수, 공백만은 안 됨 |
-| `category` | 필수. `DAILY`, `STUDY`, `TREE` |
+| `category` | 필수. `DAILY`, `STUDY`, `NEWS` |
 | `summary` | 선택, 300자 이하 |
 
 ### 에러 응답
