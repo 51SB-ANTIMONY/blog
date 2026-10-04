@@ -181,17 +181,7 @@ Google Cloud Console의 OAuth 클라이언트에 승인된 리디렉션 URI `htt
 ### 배포해 봐야 아는 것
 **Vercel이 `X-Forwarded-Host`를 넘기는지.** Spring은 이 헤더로 "사용자가 접속한 주소"를 알아서 redirect_uri와 리다이렉트 주소를 만든다. 로컬의 Next.js는 넘긴다는 것을 확인했다. Vercel도 넘기지 않으면, 로그인 후 `blog-api.antimony.kr`로 돌아가는 식으로 주소가 어긋난다.
 
-→ **결과: Vercel은 넘기지 않았다.** `accounts.antimony.kr/oauth2/authorize`의 리다이렉트가 `https://accounts-api.antimony.kr/login`으로 만들어졌다. 같은 요청을 Cloudflare 주소로 직접 보내며 헤더를 넣으면 `accounts.antimony.kr/login`이 나와서, Cloudflare와 Nginx는 헤더를 그대로 넘기고 Vercel의 rewrites만 빠뜨린다는 것을 확인했다.
-
-**고친 방법:** `next.config.ts`의 rewrites를 지우고, 두 화면 저장소에 `frontend/proxy.ts`를 만들었다. Spring이 맡는 경로를 여기서 Spring으로 넘기면서 헤더를 직접 붙인다.
-| 헤더 | 값 |
-|---|---|
-| `X-Forwarded-Host` | 브라우저가 보낸 Host (`accounts.antimony.kr`, 로컬은 `localhost:3001`) |
-| `X-Forwarded-Proto` | 브라우저가 접속한 방식 (`https`, 로컬은 `http`) |
-| `X-Forwarded-Port` | 지운다. Next.js가 자기 서버 포트를 붙여 보내서, 로컬 확인에서 `accounts.antimony.kr:3101/login`처럼 포트가 섞였다 |
-
-> **proxy.ts란?**
-> Next.js 16에서 요청이 화면에 닿기 전에 실행되는 코드다(15까지의 이름은 middleware). `matcher`에 적은 경로만 실행되고, `NextResponse.rewrite`로 요청을 다른 서버에 넘길 때 요청 헤더를 바꿔서 보낼 수 있다.
+→ **결과: 넘기지 않았다.** [트러블슈팅 4](#4-로그인-화면-주소가-accounts-api로-만들어졌다)에서 고쳤다.
 
 ## 6. 비용 (대략, 서울 리전, 가장 작은 사양)
 | 항목 | 월 비용 | 프리 티어 (가입 후 12개월) |
@@ -202,3 +192,41 @@ Google Cloud Console의 OAuth 클라이언트에 승인된 리디렉션 URI `htt
 | Vercel | 무료 (Hobby) | |
 
 단일 인스턴스로 로드밸런서 비용(2개 약 4~5만 원)을 없앴다. EC2 2대는 프리 티어 750시간을 넘으므로(2대 × 720시간) 1대분은 요금이 나온다. 나중에 로드밸런서가 필요하면 Elastic Beanstalk의 **공유 로드밸런서**(로드밸런서 하나를 두 환경이 나눠 씀)와 ②에서 발급한 ACM 인증서를 쓴다.
+
+## 7. 배포 중 바꾼 것
+| 바꾼 것 | 내용 |
+|---|---|
+| accounts 첫 화면(`/`) | 전에는 무조건 `/account`로 보내고, 화면이 뜬 뒤 로그인이 안 되어 있으면 `/login`으로 다시 보냈다(내 계정 화면이 잠깐 보였다). 이제 `proxy.ts`가 화면을 띄우기 전에 Spring의 `/api/me`로 로그인 여부를 확인해, 로그인되어 있으면 `/account`, 아니면 `/login`으로 보낸다 |
+
+## 8. 트러블슈팅
+
+### 1. 서버가 시작하지 못했다: 서명 키를 읽지 못함
+- **증상**: accounts-api 배포 후 Spring이 시작하지 못했다. 로그에 `Input byte array has wrong 4-byte ending unit`.
+- **원인**: 환경 속성 `SIGNING_KEY_BASE64`(1624자)를 붙여 넣을 때 끝이 잘렸다. 메모장의 자동 줄 바꿈 때문에 한 줄 전체가 선택되지 않았다.
+- **해결**: 메모장의 자동 줄 바꿈을 끄고, 줄 처음에서 Shift+End로 한 줄 전체를 복사해 다시 넣었다.
+
+### 2. RDS 보안 그룹에 규칙을 추가하지 못했다
+- **증상**: RDS의 `default` 보안 그룹 인바운드 규칙에 주소를 넣으니 `You may not specify an IPv4 CIDR for an existing referenced group id rule`.
+- **원인**: 이미 "다른 보안 그룹에서 오는 요청 허용"으로 만들어진 규칙의 원본 칸에 IP 주소 범위를 넣으려 했다. 한 규칙에는 둘 중 하나만 쓸 수 있다.
+- **해결**: 기존 규칙을 고치지 않고, **새 규칙**(MySQL/Aurora 3306, 원본 `172.31.0.0/16` = 기본 VPC 안)을 추가하거나 `default` 보안 그룹을 Elastic Beanstalk 인스턴스에 붙이는 방법 중 하나로 해결했다.
+
+### 3. HTTPS가 연결되지 않았다: 단일 인스턴스
+- **증상**: `https://accounts-api.antimony.kr`이 시간 초과. Elastic Beanstalk 구성에 리스너(로드밸런서) 설정 메뉴가 없었다.
+- **원인**: 환경을 **단일 인스턴스**로 만들어서 로드밸런서가 없었다. ACM 인증서는 로드밸런서에만 붙일 수 있고, EC2의 443 포트는 닫혀 있었다.
+- **해결**: 단일 인스턴스를 유지하고(프리 티어), Cloudflare 프록시 + 원본 인증서 + EC2 안의 Nginx 443으로 바꿨다([3. 구성](#3-구성)).
+
+### 4. 로그인 화면 주소가 accounts-api로 만들어졌다
+- **증상**: `https://accounts.antimony.kr/oauth2/authorize?...`의 응답이 `Location: https://accounts-api.antimony.kr/login`. 브라우저가 Cloudflare 원본 인증서를 쓰는 API 주소로 가게 된다.
+- **원인 찾기**: 같은 요청을 Cloudflare 주소(`accounts-api`)로 직접 보내며 `X-Forwarded-Host: accounts.antimony.kr`을 넣으면 `accounts.antimony.kr/login`이 나왔다. Cloudflare와 Nginx는 헤더를 그대로 넘긴다. **Vercel을 거칠 때 사용자가 접속한 주소가 빠진다.**
+- **첫 시도 (실패)**: `next.config.ts`의 rewrites를 `proxy.ts`로 옮기고 `X-Forwarded-Host`, `X-Forwarded-Proto`를 직접 붙였다. 로컬에서는 맞게 나왔지만, push한 뒤에도 Vercel에서는 그대로 `accounts-api`였다. Vercel이 바깥 서버로 넘길 때 `X-Forwarded-Host`를 자기 값으로 다시 쓰는 것으로 보인다(Vercel 배포가 끝난 시점이었는지는 확인하지 못했다. 어느 쪽이든 아래 해결로 상관없어진다).
+  - 로컬 확인 중 하나 더: Next.js가 자기 서버 포트를 `X-Forwarded-Port`로 붙여, 주소가 `accounts.antimony.kr:3101/login`처럼 나왔다.
+- **해결**: 표준 헤더 **`Forwarded: host="accounts.antimony.kr";proto=https`**(RFC 7239)로 보낸다. Spring은 `Forwarded`가 있으면 `X-Forwarded-*`를 보지 않으므로, Vercel이 무엇을 붙이든 영향이 없다. 포트는 host 안에 있을 때만 쓰므로 `X-Forwarded-Port` 문제도 함께 사라진다. 실제 API에 대해 `Forwarded`와 틀린 `X-Forwarded-Host`를 함께 보내 `Forwarded`가 이기는 것을 확인했다.
+
+> **Forwarded 헤더(RFC 7239)란?**
+> 중간 서버(프록시)가 "원래 요청이 어떤 주소, 어떤 방식(http/https)으로 들어왔는지"를 다음 서버에 알리는 표준 헤더다. `X-Forwarded-Host`, `X-Forwarded-Proto`는 이 표준이 나오기 전부터 쓰던 비표준 헤더다.
+
+### 5. 배포 훅에 실행 권한이 붙지 않았다
+- **증상**: `ebBundle`이 만든 zip 안의 `01_tls_certificate.sh`가 실행 권한 없이(`rw-r--r--`) 들어갔다. 그대로 올리면 Elastic Beanstalk이 인증서를 내려받지 못하고, Nginx가 시작하지 못한다.
+- **원인**: `filesMatching('.platform/hooks/**')`를 작업 전체에 걸었는데, `from('.platform') { into '.platform' }` 안의 파일은 그 경로로 맞지 않았다.
+- **해결**: `from('.platform')` 블록 안에 `filesMatching('hooks/**')`로 옮겼다. 배포 전에 `unzip -Z`로 `rwxr-xr-x`인 것을 확인했다.
+
