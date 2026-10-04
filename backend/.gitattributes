@@ -1,0 +1,5 @@
+# 서버(Linux)에서 실행하는 파일은 Windows에서도 줄 끝을 LF로 둔다.
+*.sh text eol=lf
+Procfile text eol=lf
+.platform/** text eol=lf
+.ebextensions/** text eol=lf

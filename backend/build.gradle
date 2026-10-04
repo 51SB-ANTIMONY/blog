@@ -50,3 +50,24 @@ tasks.named('test') {
     // 테스트는 test 프로필(src/test/resources/application-test.yml)로 실행한다. 로컬 비밀 값 파일에 기대지 않는다.
     systemProperty 'spring.profiles.active', 'test'
 }
+
+// Elastic Beanstalk에 올릴 묶음(build/distributions/blog-eb.zip): JAR + Procfile + 배포 설정(.platform, .ebextensions)
+tasks.register('ebBundle', Zip) {
+    group = 'build'
+    description = 'Elastic Beanstalk 배포 묶음을 만든다'
+    archiveFileName = "${project.name}-eb.zip"
+    from(tasks.named('bootJar')) {
+        rename { 'application.jar' }
+    }
+    from('Procfile')
+    from('.platform') {
+        into '.platform'
+        // 배포 훅은 실행 권한이 있어야 Elastic Beanstalk이 실행한다
+        filesMatching('hooks/**') {
+            filePermissions { unix('rwxr-xr-x') }
+        }
+    }
+    from('.ebextensions') {
+        into '.ebextensions'
+    }
+}
