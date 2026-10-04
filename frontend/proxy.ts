@@ -3,9 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 // 화면은 Next.js가, 로그인 처리·세션·글 API는 Spring(blog backend)이 맡는다.
 // 브라우저는 이 주소(localhost:3000, blog.antimony.kr) 하나만 보고, 아래 matcher의 경로는 Spring으로 넘긴다.
 //
-// next.config의 rewrites 대신 여기서 넘기는 이유: Spring은 "사용자가 접속한 주소"를 알아야 리다이렉트 주소를 만든다.
-// Vercel은 X-Forwarded-Host를 자기 값(넘겨받는 서버 주소)으로 덮어쓰므로, 표준 헤더 Forwarded(RFC 7239)에 담아 보낸다.
-// Spring은 Forwarded가 있으면 X-Forwarded-*보다 먼저 쓴다.
+// Spring은 "사용자가 접속한 주소"를 알아야 리다이렉트 주소를 만든다. 그래서 넘길 때 표준 헤더 Forwarded(RFC 7239)에 담아 보낸다.
+// 로컬에서는 이 값이 그대로 Spring에 닿는다. 운영(Vercel)에서는 Spring까지 전달되지 않아서,
+// EC2의 Nginx(backend/.platform/nginx/conf.d/https.conf)가 공개 주소로 고정한다.
 const backend = process.env.BLOG_BACKEND_URL ?? "http://localhost:8080";
 
 export function proxy(request: NextRequest) {
