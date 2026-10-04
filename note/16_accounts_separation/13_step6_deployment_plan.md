@@ -259,3 +259,13 @@ Google Cloud Console의 OAuth 클라이언트에 승인된 리디렉션 URI `htt
 - **원인**: Spring 로그에서 04:38에는 `Tomcat initialized with port 5000`, 04:40 배포 뒤에는 `port 8080`. 환경 속성 `PORT`가 빠져서 Spring이 기본값(`${PORT:8080}`)으로 떴다. Nginx는 5000으로 넘기므로 연결이 거부됐다. Spring 자체는 정상이었다.
 - **해결**: 환경 속성에 `PORT=5000`을 다시 넣는다.
 - **교훈**: 환경 속성을 고칠 때 다른 속성이 함께 빠지지 않았는지 목록 전체를 확인한다. Spring이 멈춘 것처럼 보여도 로그의 `Tomcat started on port`부터 본다.
+
+### 9. Google로 처음 가입하고 돌아오면 `blog.antimony.kr/login?error` 404
+- **증상**: 회원가입하지 않은 상태에서 blog → Google로 로그인하면 `https://blog.antimony.kr/login?error`로 가며 404. 로고를 눌러 첫 화면으로 가서 새로고침하면 로그인되어 있다.
+- **404의 원인**: blog의 Spring은 accounts에서 돌아온 로그인 처리(`/login/oauth2/code/accounts`)가 실패하면, Spring Security 기본값대로 `/login?error`로 보낸다. 화면(Next.js)에는 `/login` 주소가 없어 404가 난다.
+- **실패한 원인 (확인하지 못함)**: 새로고침하면 로그인되어 있었으므로 blog 세션의 로그인은 성공했다. 같은 로그인 응답(`code`, `state`)이 두 번 처리되어, 첫 번째는 성공하고 두 번째는 "저장해 둔 로그인 요청 없음"(`authorization_request_not_found`)으로 실패했을 가능성이 높다. 두 번째 요청이 어디서 왔는지는 실패 이유가 로그에 남지 않아 확인하지 못했다(Spring Security는 로그인 실패를 기본으로 기록하지 않는다).
+- **해결**: 실패 처리기를 직접 정했다(`SecurityConfig.loginFailureHandler`).
+  - 실패하면 첫 화면(`/`)으로 보낸다. 위의 경우라면 로그인된 첫 화면이 보인다.
+  - 실패 이유와 그 시점의 로그인 여부를 WARN 로그로 남긴다. 예: `accounts 로그인 처리 실패: reason=authorization_request_not_found, message=..., alreadyLoggedIn=true`. 다시 일어나면 blog 환경의 로그에서 이 줄을 찾아 원인을 좁힌다.
+  - 테스트: 저장해 둔 요청 없이 콜백을 부르면 `/`로 보내는지 확인.
+
