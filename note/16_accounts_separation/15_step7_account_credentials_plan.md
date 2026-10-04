@@ -145,3 +145,64 @@ accounts의 **내 계정** 화면에서 아이디와 비밀번호를 정하고 �
 | `/account/credentials`, `/account/password` | 200, 탭 제목 `Antimony Set Credentials`, `Antimony Change Password` |
 
 소셜 회원의 설정 화면 흐름은 Google 로그인이 필요해 로컬에서는 자동 테스트로만 확인했다. 운영에서 Google로 가입한 계정으로 확인한다.
+
+## 6. 추가: 관리자 테이블과 짧은 아이디
+
+### 요청과 정한 것
+운영자(운영 DB의 1번 회원)는 4자보다 짧은 아이디를 쓰고 싶다. 처음에는 코드에 `id == 1`을 적었다가 아이디를 정한 뒤 지우는 방법을 검토했다. 나중에 accounts에 관리자 전용 페이지를 만들 예정이어서, 관리자를 데이터로 두기로 했다.
+
+| 검토한 방법 | 판단 |
+|---|---|
+| 코드에 `id == 1` | id 1은 "그 DB에 처음 가입한 사람"일 뿐이다. 로컬·테스트 DB나 새로 만든 DB에서는 다른 사람이 된다 |
+| `users`에 `role` 칸 (USER/ADMIN) | 모든 회원에게 USER 값을 채워야 한다. 관리자는 극소수다 |
+| **`admins` 테이블 (선택)** | 관리자만 행을 가진다. 행이 없으면 일반 회원. 관리자 정보(지정 시각 등)를 둘 자리가 있다 |
+
+| 역할 (`admins.role`) | 뜻 |
+|---|---|
+| `ADMIN` | 관리자 |
+| `CO_ADMIN` | 공동 관리자 |
+| (행 없음) | 일반 회원 |
+
+관리자(두 역할 모두)는 **아이디·비밀번호 설정에서 1–16자** 아이디를 정할 수 있다. 글자 종류(영문 소문자·숫자), 중복 불가, "처음 한 번만"은 일반 회원과 같다.
+
+### 테이블 (`V4__admins.sql`)
+```sql
+CREATE TABLE admins (
+    user_id    BIGINT      NOT NULL,      -- 기본 키이자 users.id를 가리키는 외래 키
+    role       VARCHAR(20) NOT NULL,      -- ADMIN | CO_ADMIN
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (user_id),
+    CONSTRAINT fk_admins_user FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+INSERT INTO admins (user_id, role, created_at)
+SELECT id, 'ADMIN', CURRENT_TIMESTAMP(6) FROM users WHERE id = 1;
+```
+- Flyway는 실행한 마이그레이션을 `flyway_schema_history`에 기록하고 다시 실행하지 않는다. 그래서 `INSERT`는 운영 DB에 처음 배포될 때 한 번만 일어난다.
+- 회원이 없는 DB(로컬·테스트)에서는 `SELECT`가 아무 행도 돌려주지 않아 관리자가 생기지 않는다.
+- 운영 DB의 1번 회원이 운영자 본인인 것은 `/api/me`의 `id`로 확인했다.
+- 관리자를 바꾸려면 이 테이블의 행을 넣거나 지운다. 코드는 바꾸지 않는다.
+
+> **외래 키(FOREIGN KEY)란?**
+> 이 칸의 값이 다른 테이블에 실제로 있는 값이어야 한다는 제약이다. `admins.user_id`에는 `users`에 있는 회원 번호만 들어갈 수 있다.
+
+### 코드
+| 파일 | 내용 |
+|---|---|
+| `domain/Admin.java`, `domain/AdminRole.java`, `repository/AdminRepository.java` (새 파일) | 관리자 엔티티. 역할은 다른 enum처럼 VARCHAR로 저장 |
+| `service/AccountSettingsService.java` | 중복확인·설정에서 4자보다 짧은 아이디는 관리자일 때만 허용. 일반 회원이면 invalid / 400 `errors.uid` |
+| `dto/CredentialsRequest.java` | `@Pattern`은 글자 종류와 최대 길이만(1–16). 최소 길이는 서비스가 회원 종류에 따라 본다 |
+| `exception/InvalidInputException.java` (새 파일) | `@Valid` 밖에서 찾은 입력 오류를 같은 형식(400, `errors`)으로 |
+| `dto/MeResponse.java` | `adminRole` (ADMIN, CO_ADMIN, 일반 회원은 null) |
+| 화면 `CredentialsForm.tsx` | 관리자면 아이디 규칙 안내가 "영문 소문자·숫자 1–16자 (관리자)", 형식 검사도 1–16자 |
+
+### 확인
+| 확인 | 결과 |
+|---|---|
+| 자동 테스트 | accounts 56개 통과 (새로 4개: 일반 회원의 짧은 아이디 거절, 관리자 1자 아이디 설정·로그인, 공동 관리자, `/api/me`의 `adminRole`) |
+| 마이그레이션 | H2(MySQL 모드)에 1번·2번 회원을 넣고 V1·V4를 실행 → `admins`에 `1, ADMIN` 한 행만 |
+
+### 나중에 (관리자 페이지)
+- 로그인할 때 관리자에게 `ROLE_ADMIN`(또는 역할별 권한)을 붙이고, `/admin/**`은 관리자만 들어가게 한다.
+- ADMIN과 CO_ADMIN이 할 수 있는 일의 차이(예: 공동 관리자 지정은 ADMIN만)를 정한다.
+- 화면은 프로토타입부터.
