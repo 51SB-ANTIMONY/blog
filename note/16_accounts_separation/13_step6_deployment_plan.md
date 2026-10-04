@@ -193,12 +193,20 @@ Google Cloud Console의 OAuth 클라이언트에 승인된 리디렉션 URI `htt
 
 단일 인스턴스로 로드밸런서 비용(2개 약 4~5만 원)을 없앴다. EC2 2대는 프리 티어 750시간을 넘으므로(2대 × 720시간) 1대분은 요금이 나온다. 나중에 로드밸런서가 필요하면 Elastic Beanstalk의 **공유 로드밸런서**(로드밸런서 하나를 두 환경이 나눠 씀)와 ②에서 발급한 ACM 인증서를 쓴다.
 
-## 7. 배포 중 바꾼 것
+## 7. 정한 것 (배포 뒤)
+| 항목 | 결정 |
+|---|---|
+| Cloudflare SSL 모드 | **Full 유지** (Full (strict)로 바꾸지 않음). Cloudflare → EC2 구간은 HTTPS로 암호화되지만, Cloudflare가 서버 인증서가 진짜인지는 확인하지 않는다. 서버는 원본 인증서를 쓰므로 나중에 strict로 바꿔도 동작한다 |
+| Google 로그인 | Google Cloud Console에 리디렉션 URI `https://accounts.antimony.kr/login/oauth2/code/google` 추가 완료 |
+| 자동 배포 | GitHub Actions로 `main` push 시 테스트 후 Elastic Beanstalk에 배포. [CI/CD 노트](./14_step6_cicd.md) |
+| 남은 확인 | 브라우저에서 회원가입·로그인·글 쓰기·로그아웃 전체 흐름 (나중에) |
+
+## 8. 배포 중 바꾼 것
 | 바꾼 것 | 내용 |
 |---|---|
 | accounts 첫 화면(`/`) | 전에는 무조건 `/account`로 보내고, 화면이 뜬 뒤 로그인이 안 되어 있으면 `/login`으로 다시 보냈다(내 계정 화면이 잠깐 보였다). 이제 `proxy.ts`가 화면을 띄우기 전에 Spring의 `/api/me`로 로그인 여부를 확인해, 로그인되어 있으면 `/account`, 아니면 `/login`으로 보낸다 |
 
-## 8. 트러블슈팅
+## 9. 트러블슈팅
 
 ### 1. 서버가 시작하지 못했다: 서명 키를 읽지 못함
 - **증상**: accounts-api 배포 후 Spring이 시작하지 못했다. 로그에 `Input byte array has wrong 4-byte ending unit`.

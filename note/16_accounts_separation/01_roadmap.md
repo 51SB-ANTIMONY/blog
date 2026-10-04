@@ -42,7 +42,7 @@ blog 서버가 직접 하던 로그인(Google 로그인, JWT 발급)을 떼어 �
 | **3단계** blog 화면을 Next.js로 | 임시 Thymeleaf 화면을 Next.js로 바꾼다 | 완료 (브라우저 확인 남음) | [계획](./08_step3_blog_frontend_plan.md), [구현·확인·트러블슈팅](./09_step3_blog_frontend.md) |
 | **4단계** 저장소 분리 | `accounts/`를 새 Git 저장소(`51SB-ANTIMONY/accounts`)로 옮긴다 | 완료 | [계획·결과](./10_step4_repository_split.md) |
 | **5단계** 운영 준비 | 운영에 필요한 코드와 설정: MySQL, Flyway, 서명 키·토큰·세션 영구 저장, 메일, 환경 변수, HTTPS 대비. 미뤄 둔 브라우저 확인 포함 | 완료 (발송 횟수 제한·로컬 리허설은 배포 뒤로) | [계획](./11_step5_production_readiness_plan.md), [구현·확인·트러블슈팅](./12_step5_production_readiness.md) |
-| **6단계** 실제 배포 | Elastic Beanstalk + RDS + Vercel + Cloudflare로 실제 주소에서 운영한다 | 진행 중 | [계획·순서](./13_step6_deployment_plan.md) |
+| **6단계** 실제 배포 | Elastic Beanstalk + RDS + Vercel + Cloudflare로 실제 주소에서 운영한다 | 배포 완료 (브라우저 전체 흐름 확인 남음) | [구성·순서·트러블슈팅](./13_step6_deployment_plan.md), [CI/CD](./14_step6_cicd.md) |
 
 ## 4. 6단계 실제 배포 (아직 세부 계획 전)
 코드와 설정은 5단계에서 준비하고, 6단계에서는 실제로 운영할 곳을 꾸린다.
@@ -86,4 +86,5 @@ blog 서버가 직접 하던 로그인(Google 로그인, JWT 발급)을 떼어 �
 | [10 4단계: 저장소 분리](./10_step4_repository_split.md) | 목적, 분리 전 점검, 세부 단계 4-1~4-6, 수행 방안, 결과 |
 | [11 5단계: 운영 준비 (계획)](./11_step5_production_readiness_plan.md) | 목적, 정한 것(MySQL, Docker는 나중에), 세부 단계 5-1~5-8, 수행 방안 |
 | [12 5단계: 구현, 확인, 트러블슈팅](./12_step5_production_readiness.md) | 설정 분리, Flyway, 서명 키·토큰·세션 영구 저장, HTTPS 대비, 헬스 체크 |
-| [13 6단계: 실제 배포](./13_step6_deployment_plan.md) | 구성, 콘솔에서 따라 할 순서, 환경 변수, 배포 뒤 확인, 비용 |
+| [13 6단계: 실제 배포](./13_step6_deployment_plan.md) | 구성, 콘솔에서 따라 할 순서, 환경 변수, 배포 뒤 확인, 비용, 트러블슈팅 |
+| [14 6단계: CI/CD](./14_step6_cicd.md) | CI/CD와 GitHub Actions 개념, 워크플로 코드 설명, 예제에서 고친 것, 알아 둘 점 |
