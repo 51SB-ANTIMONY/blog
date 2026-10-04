@@ -62,9 +62,9 @@ tasks.register('ebBundle', Zip) {
     from('Procfile')
     from('.platform') {
         into '.platform'
-        // 배포 훅은 실행 권한이 있어야 Elastic Beanstalk이 실행한다
-        filesMatching('hooks/**') {
-            filePermissions { unix('rwxr-xr-x') }
+        // 배포 훅(hooks: 코드 배포, confighooks: 설정 변경)은 실행 권한이 있어야 Elastic Beanstalk이 실행한다
+        filesMatching('**/*.sh') {
+            permissions { unix('rwxr-xr-x') }
         }
     }
     from('.ebextensions') {
