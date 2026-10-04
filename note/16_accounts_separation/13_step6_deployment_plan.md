@@ -201,6 +201,43 @@ Google Cloud Console의 OAuth 클라이언트에 승인된 리디렉션 URI `htt
 | 자동 배포 | GitHub Actions로 `main` push 시 테스트 후 Elastic Beanstalk에 배포. [CI/CD 노트](./14_step6_cicd.md) |
 | 남은 확인 | 브라우저에서 회원가입·로그인·글 쓰기·로그아웃 전체 흐름 (나중에) |
 
+### 메일 발송 (Resend)
+회원가입·아이디 찾기·비밀번호 찾기·이메일 변경의 인증번호와 안내 메일을 실제로 보낸다. 설정 전에는 메일 대신 accounts 서버 로그에 인증번호가 남았다.
+
+| 질문 | 결정 |
+|---|---|
+| 보낸 사람 | `ANTIMONY <no-reply@antimony.kr>`. 개인 Gmail 주소를 드러내지 않고 서비스 도메인으로 보낸다 |
+| Gmail SMTP를 쓰지 않은 이유 | Gmail은 보낸 사람을 로그인한 Gmail 주소로 바꾼다. `antimony.kr` 주소로 보내도 받는 쪽의 도메인 인증(SPF·DKIM·DMARC)에 떨어져 스팸함으로 가기 쉽다 |
+| AWS SES 대신 Resend | SES는 처음에 샌드박스(등록한 주소로만 발송)라 프로덕션 액세스 신청이 필요하다. Resend는 DNS 레코드만 넣으면 바로 누구에게나 보낼 수 있다. 무료로 하루 100통, 월 3,000통(가입 당시 기준)이라 지금 규모에 충분하다 |
+| 코드 변경 | 없음. 5단계에서 만든 SMTP 발송(`SmtpVerificationMailSender`)을 그대로 쓰고, 환경 속성만 넣었다. 나중에 다른 메일 서비스로 바꿔도 SMTP 값만 바꾸면 된다 |
+
+> **트랜잭션 메일이란?**
+> 사용자가 어떤 행동을 했을 때 서비스가 자동으로 보내는 메일이다(인증번호, 비밀번호 재설정, 계정 변경 안내). 광고 메일과 구분된다. Resend, AWS SES 같은 서비스가 이런 메일을 대신 보내 준다.
+
+> **도메인 인증(SPF, DKIM, DMARC)이란?**
+> 받는 메일 서버가 "이 메일이 정말 그 도메인에서 왔는가"를 확인하는 방법이다. 도메인 주인이 DNS에 기록을 올려 둔다.
+> - **SPF**: 이 도메인 이름으로 메일을 보내도 되는 서버 목록
+> - **DKIM**: 메일에 붙이는 전자 서명. 받는 쪽은 DNS에 올린 공개 키로 서명을 확인한다
+> - **DMARC**: SPF·DKIM 확인에 실패한 메일을 어떻게 처리할지 정한 규칙. `p=none`은 "받되 확인만"
+
+**한 일**
+1. Resend 가입 → Domains에 `antimony.kr` 추가
+2. Cloudflare DNS에 Resend가 보여 준 레코드 추가: `send` (반송 처리 MX와 SPF, Resend 서버로 연결), `resend._domainkey` (DKIM), `_dmarc` (`v=DMARC1; p=none; ...`). `antimony.kr` 자체가 아니라 하위 도메인 `send`를 쓰므로 나중에 `antimony.kr`로 메일을 받는 설정과 겹치지 않는다
+3. Resend에서 도메인 Verified 확인 → API 키 발급(Sending access, `antimony.kr`만). 키는 비밀 값 파일에
+4. Elastic Beanstalk `Accounts-api-env` 환경 속성
+
+| 이름 | 값 |
+|---|---|
+| `SMTP_HOST` | `smtp.resend.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USERNAME` | `resend` (고정 값) |
+| `SMTP_PASSWORD` | Resend API 키 |
+| `MAIL_FROM` | `ANTIMONY <no-reply@antimony.kr>` |
+
+**확인**: 적용 후 accounts-api health UP, DNS에 세 레코드가 보이는 것을 확인했다. 아이디 찾기로 인증번호 메일을 보내 `no-reply@antimony.kr`에서 메일이 오는 것을 받아 봤다.
+
+> 가입한 메일 주소는 Resend 계정 로그인용이다. 도메인을 인증하기 전에는 `onboarding@resend.dev`로, 가입한 주소에게만 테스트 발송이 된다. `no-reply@antimony.kr`은 실제 메일함이 없어도 된다(답장은 되돌아간다).
+
 ## 8. 배포 중 바꾼 것
 | 바꾼 것 | 내용 |
 |---|---|
