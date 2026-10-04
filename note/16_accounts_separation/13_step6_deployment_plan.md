@@ -233,3 +233,15 @@ Google Cloud Console의 OAuth 클라이언트에 승인된 리디렉션 URI `htt
 - **원인**: `filesMatching('.platform/hooks/**')`를 작업 전체에 걸었는데, `from('.platform') { into '.platform' }` 안의 파일은 그 경로로 맞지 않았다.
 - **해결**: `from('.platform')` 블록 안에 `filesMatching('hooks/**')`로 옮겼다. 배포 전에 `unzip -Z`로 `rwxr-xr-x`인 것을 확인했다.
 
+
+### 6. 환경 속성을 추가한 뒤 Nginx가 시작하지 못했다
+- **증상**: blog 환경에서 `Command failed on all instances`, `Incorrect application version found on all instances. Expected version "Sample"`. 로그에 `cannot load certificate "/etc/pki/tls/certs/origin.crt" ... No such file or directory`. Spring 자체는 정상 시작했다(DB 테이블도 만들어짐).
+- **원인**: 두 번의 배포가 이어졌다.
+  1. zip 배포: 환경 속성 `TLS_CERT_S3_URI`를 아직 넣지 않아 인증서 스크립트가 실패했다(`key 'TLS_CERT_S3_URI' does not exist`). 배포가 실패해 환경은 처음의 샘플 애플리케이션 버전으로 남았다.
+  2. 환경 속성 추가: Elastic Beanstalk은 **설정만 바꾸는 배포에서는 `.platform/hooks/`를 실행하지 않고 `.platform/confighooks/`를 실행한다.** 그래서 인증서를 내려받지 않은 채 Nginx 설정을 검사했고, 인증서 파일이 없어 실패했다.
+- **해결**: 같은 스크립트를 `.platform/confighooks/prebuild/`에도 두었다. 설정을 바꿀 때도 인증서를 내려받는다. 환경 속성을 넣은 뒤 zip을 다시 배포한다.
+
+### 7. 배포 묶음을 만들지 못했다: `filePermissions` is final
+- **증상**: 스크립트를 두 곳에 두자 `ebBundle`이 `The value for property 'filePermissions' is final and cannot be changed any further`로 실패했다.
+- **원인**: `filesMatching` 안에서 `filePermissions { }`를 쓰면, 맞는 파일이 둘 이상일 때 두 번째 파일에서 값을 바꾸지 못한다(Gradle 9.2에서 확인).
+- **해결**: 파일마다 권한을 정하는 `permissions { unix('rwxr-xr-x') }`로 바꾸고, 대상을 `**/*.sh`로 했다. zip 안의 두 스크립트가 `rwxr-xr-x`인 것을 확인했다.
