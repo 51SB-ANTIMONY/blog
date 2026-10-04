@@ -1,10 +1,7 @@
-import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Editor from "@/components/Editor";
 import LoginRequired from "@/components/LoginRequired";
 import { fetchArticle, fetchMe } from "@/lib/server";
-
-export const metadata: Metadata = { title: "글 수정 · ANTIMONY" };
 
 type Props = { params: Promise<{ id: string }> };
 

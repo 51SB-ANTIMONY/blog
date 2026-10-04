@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ANTIMONY",
+  title: "Antimony Blog",
   description: "일상 · 학습 · 시냇가에 심은 나무",
 };
 

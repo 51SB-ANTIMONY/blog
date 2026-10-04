@@ -12,7 +12,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const article = await fetchArticle((await params).id);
-  return article ? { title: `${article.title} · ANTIMONY`, description: article.excerpt } : { title: "ANTIMONY" };
+  return article ? { description: article.excerpt } : {};
 }
 
 export default async function ArticlePage({ params }: Props) {
