@@ -85,3 +85,63 @@ accounts의 **내 계정** 화면에서 아이디와 비밀번호를 정하고 �
 | 닉네임·이메일 변경 | 이번 문제와 별개. 이메일 변경은 새 이메일 인증이 필요하다 |
 | 비밀번호를 바꿀 때 다른 기기의 세션 끊기 | 로그인 유지 쿠키는 자동으로 무효가 되지만, 이미 열린 세션은 남는다. 필요해지면 따로 다룬다 |
 | 요청 횟수 제한 | 5단계에서 미룬 발송 횟수 제한과 함께 다룬다 |
+
+## 5. 결과
+
+### 커밋
+| 저장소 | 커밋 | 내용 |
+|---|---|---|
+| blog | `ef7a8a9` | 7-1 프로토타입 기록 |
+| accounts | `81c02f1` | 7-2 서버 API 3개, 해제 안내 문구, 테스트 |
+| accounts | `bc3cf44` | 7-3 화면 2개, 내 계정 버튼·안내 |
+
+### 7-2. 서버에서 바꾼 것
+| 파일 | 내용 |
+|---|---|
+| `service/AccountSettingsService.java` (새 파일) | `checkUid`(회원가입의 `SignupService.checkUid` 재사용), `setCredentials`(비밀번호가 있으면 409, 아이디가 사용 중이면 409 `errors.uid`), `changePassword`(비밀번호 없음 409, 현재 비밀번호 틀림·새 비밀번호가 같음 400) |
+| `dto/CredentialsRequest.java`, `dto/PasswordChangeRequest.java` (새 파일) | 형식 검사. 아이디 정규식과 `PasswordRule`은 회원가입과 같다 |
+| `domain/User.java` | `setCredentials(uid, passwordHash)`: 아이디와 비밀번호를 함께 바꾼다 |
+| `controller/MeApiController.java` | `GET /api/me/uid-availability`, `POST /api/me/credentials`, `PUT /api/me/password` |
+| `service/UserService.java` | 마지막 소셜 계정 해제 안내를 "아이디·비밀번호를 먼저 설정해 주세요"로 |
+
+**새 서비스로 나눈 이유:** 아이디 중복확인 규칙은 `SignupService`에 있고, `SignupService`는 `UserService`를 쓴다. `UserService`에 넣어 `SignupService`를 부르면 서로를 부르는 순환 의존이 생긴다.
+
+> **순환 의존이란?**
+> A가 B를 필요로 하고 B도 A를 필요로 하는 관계다. Spring은 생성자로 의존성을 넣을 때 어느 쪽을 먼저 만들지 정할 수 없어 서버가 시작하지 못한다.
+
+### 7-3. 화면에서 바꾼 것
+| 파일 | 내용 |
+|---|---|
+| `app/account/credentials/` (새 폴더) | 아이디·비밀번호 설정. 로그인하지 않았으면 `/login`, 이미 비밀번호가 있으면 `/account/password`로 보낸다. 완료하면 `/account?done=credentials` |
+| `app/account/password/` (새 폴더) | 비밀번호 변경. 비밀번호가 없으면 `/account/credentials`로 보낸다. 완료하면 `/account?done=password` |
+| `app/account/AccountView.tsx` | 버튼 연결(비밀번호 있음 → 변경, 없음 → 설정), 자동 아이디 아래 "자동으로 만든 아이디", `done`에 따른 초록 안내 |
+| `lib/api.ts` | `checkMyUid`, `setCredentials`, `changePassword` |
+| `app/globals.css` | 안내 상자(`.note-box`), 아이디 아래 작은 안내(`.dd-note`), 입력칸 아래 링크(`.field-help`) |
+
+회원가입과 비밀번호 찾기에서 쓰던 `NewPasswordFields`(새 비밀번호 + 조건 + 확인), `PasswordInput`, `Banner`를 그대로 썼다.
+
+### 7-4. 확인
+**자동 테스트 (accounts 52개 통과, 새로 7개)**
+| 테스트 | 확인 |
+|---|---|
+| 로그인 없이 세 API | 401 |
+| 아이디 중복확인 | 형식 오류 invalid, 다른 회원 아이디 taken, 그 밖에 ok |
+| 소셜 회원의 설정 | 아이디·비밀번호가 바뀌고, 새 아이디·비밀번호로 로그인되고, **그 뒤 Google 연결을 해제할 수 있다** |
+| 비밀번호가 있는 회원의 설정 | 409, 아이디 그대로 |
+| 설정 입력 오류 | 사용 중인 아이디 409 `errors.uid`, 형식 오류 400, 회원 정보 그대로 |
+| 비밀번호 변경 성공 | 새 비밀번호로만 로그인 |
+| 비밀번호 변경 거절 | 현재 비밀번호 틀림 400, 같은 비밀번호 400, 형식 오류 400, 비밀번호 없는 회원 409 |
+
+**로컬 실제 흐름 (accounts 서버 + 화면 서버, 화면 서버를 거쳐 요청)**
+| 단계 | 결과 |
+|---|---|
+| 가입 신청 → 인증번호(서버 로그) → 인증 | 201 |
+| 아이디·비밀번호 로그인 | `/account`로 이동 |
+| 현재 비밀번호를 틀리게 변경 | 400 "현재 비밀번호가 맞지 않아요." |
+| 비밀번호가 있는데 설정 API | 409 "이미 아이디와 비밀번호가 설정되어 있어요." |
+| 비밀번호 변경 | 204, 지금 세션은 로그인 유지 |
+| 다른 세션에서 옛 비밀번호 로그인 | `/login?error=bad_credentials` |
+| 새 비밀번호 로그인 | `/account` |
+| `/account/credentials`, `/account/password` | 200, 탭 제목 `Antimony Set Credentials`, `Antimony Change Password` |
+
+소셜 회원의 설정 화면 흐름은 Google 로그인이 필요해 로컬에서는 자동 테스트로만 확인했다. 운영에서 Google로 가입한 계정으로 확인한다.
