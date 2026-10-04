@@ -37,6 +37,9 @@ server:
       cookie:
         # 같은 컴퓨터에서 실행하는 accounts(ACCOUNTS_SESSION)와 구별하기 위해 이름을 정한다.
         name: BLOG_SESSION
+        http-only: true
+        # 다른 사이트에서 시작된 POST 요청에는 쿠키를 보내지 않는다. 로그인 리디렉트(주소창 이동)에는 보낸다.
+        same-site: lax
 
 # 로그인을 맡기는 인가 서버(accounts). blog는 여기에 등록된 OIDC 클라이언트다.
 accounts:

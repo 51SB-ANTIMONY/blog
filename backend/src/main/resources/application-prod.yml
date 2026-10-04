@@ -5,6 +5,14 @@
 #   ACCOUNTS_ISSUER                      예: https://accounts.antimony.kr
 #   ACCOUNTS_BACKCHANNEL_URI             blog 서버가 accounts 서버를 직접 부르는 주소 (내부 주소 또는 issuer와 같은 값)
 #   ACCOUNTS_CLIENT_SECRET               accounts의 BLOG_CLIENT_SECRET과 같은 값
+server:
+  servlet:
+    session:
+      cookie:
+        # 운영은 HTTPS로만 접속하므로 세션 쿠키를 HTTPS 연결에서만 보내게 한다.
+        # (CSRF, 로그인 상태 유지 쿠키는 요청이 HTTPS일 때 자동으로 Secure가 붙는다. 앞단이 X-Forwarded-Proto: https를 넘겨야 한다)
+        secure: true
+
 spring:
   datasource:
     # 운영에서는 기본값(H2)을 쓰지 않는다. 설정하지 않으면 서버가 켜지지 않는다.
