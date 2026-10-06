@@ -96,10 +96,15 @@ textarea:focus-visible {
 
 /* ---------- 로고 ---------- */
 
+/* 로고 마크 높이(--H) 하나로 나머지를 정한다 (Antimony Hub와 같은 비율).
+   글자 로고 높이 = H × 0.34, 사이 간격 = H × 0.24,
+   글자 로고의 세로 중심 = 마크 중심보다 H × 16% 아래 (= 위에서 H × 0.66) */
 .logo {
+  --H: 36px;
+  --WH: calc(var(--H) * 0.34);
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: calc(var(--H) * 0.24);
   text-decoration: none;
   color: var(--text);
 }
@@ -109,12 +114,11 @@ textarea:focus-visible {
   flex-shrink: 0;
 }
 .logo-mark {
-  height: 36px;
+  height: var(--H);
 }
 .logo-word {
-  height: 18px;
-  position: relative;
-  top: 6px;
+  height: var(--WH);
+  margin-top: calc(var(--H) * 0.66 - var(--WH) / 2);
 }
 
 /* ---------- 헤더 ---------- */
@@ -901,12 +905,8 @@ textarea:focus-visible {
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
-.editor-header .logo-mark {
-  height: 34px;
-}
-.editor-header .logo-word {
-  height: 16px;
-  top: 5px;
+.editor-header .logo {
+  --H: 34px;
 }
 .editor-title-area {
   display: flex;
@@ -1356,14 +1356,7 @@ textarea:focus-visible {
     border-bottom: 1px solid var(--line);
   }
   .logo {
-    gap: 10px;
-  }
-  .logo-mark {
-    height: 28px;
-  }
-  .logo-word {
-    height: 15px;
-    top: 4px;
+    --H: 28px;
   }
 
   .news {
