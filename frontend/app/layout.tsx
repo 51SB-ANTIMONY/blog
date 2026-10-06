@@ -3,7 +3,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Antimony Blog",
-  description: "일상 · 학습 · 뉴스",
+  description: "Antimony Blog",
+  openGraph: {
+    title: "Antimony Blog",
+    description: "Antimony Blog",
+    siteName: "Antimony Blog",
+    type: "website",
+  },
 };
 
 export const viewport: Viewport = {

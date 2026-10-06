@@ -12,7 +12,11 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const article = await fetchArticle((await params).id);
-  return article ? { description: article.excerpt } : {};
+  if (!article) return {};
+  return {
+    description: article.excerpt,
+    openGraph: { title: "Antimony Blog", description: article.title, siteName: "Antimony Blog", type: "article" },
+  };
 }
 
 export default async function ArticlePage({ params }: Props) {
