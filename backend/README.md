@@ -15,8 +15,8 @@
 8. [구현 과정](#구현-과정)
 9. [로컬 실행 방법](#로컬-실행-방법)
 10. [테스트](#테스트)
-11. [환경 설정 (예정)](#환경-설정-예정)
-12. [배포 (예정)](#배포-예정)
+11. [환경 설정](#환경-설정)
+12. [배포](#배포)
 13. [트러블슈팅](#트러블슈팅)
 14. [학습 기록](#학습-기록)
 15. [개선 예정](#개선-예정)
@@ -34,10 +34,10 @@
 | View | Next.js ([`../frontend`](../frontend)) | 화면. 이 서버 앞에서 요청을 넘겨준다(rewrites) | 사용 중 (Thymeleaf 임시 화면은 삭제) |
 | Test | JUnit 5, AssertJ, MockMvc, Spring Security Test | 단위, 통합 테스트 | 사용 중 |
 | 기타 | Lombok | 반복 코드 생성 | 사용 중 |
-| Database | Amazon RDS | 운영 DB | 예정 |
+| Database | Amazon RDS for MySQL | 운영 DB (Flyway로 스키마 관리) | 사용 중 |
 | 파일 저장소 | Amazon S3 | 이미지 업로드 | 예정 |
-| 배포 | AWS Elastic Beanstalk | | 예정 |
-| CI/CD | GitHub Actions | | 예정 |
+| 배포 | AWS Elastic Beanstalk | 단일 인스턴스, Cloudflare 프록시로 HTTPS | 사용 중 |
+| CI/CD | GitHub Actions | `main`에 push하면 테스트 후 배포 | 사용 중 |
 
 ## 아키텍처
 ```
@@ -354,7 +354,7 @@ accounts를 켜지 않아도 됩니다. 로그인한 상태는 `spring-security-
 | `BlogApiControllerTest` | 글 API | 작성, 목록, 상세, 수정, 삭제와 응답 형식(작성자 닉네임, 카테고리, 요약). 로그인 없이 읽기, `editable`, 카테고리 필터, 본문으로 만든 요약, `/api/me`. 없는 글 404, 작성자가 아닌 사용자의 수정·삭제 403, 입력값 검증 400 |
 | `UserServiceTest` | 회원 연결 | 처음 로그인하면 회원 생성, 같은 `sub`면 같은 회원이고 닉네임 갱신 |
 
-## 환경 설정 (예정)
+## 환경 설정
 운영 환경에서 필요한 환경 변수입니다. 값은 Elastic Beanstalk 환경 속성에 설정하고 저장소에 올리지 않습니다.
 
 | 환경 변수 | 용도 |
@@ -365,12 +365,12 @@ accounts를 켜지 않아도 됩니다. 로그인한 상태는 `spring-security-
 | `DB_URL` | DB 접속 주소 (5-2에서 MySQL) |
 | `DB_USERNAME`, `DB_PASSWORD` | DB 계정 |
 
-## 배포 (예정)
+## 배포
 | 구성 요소 | 역할 |
 |---|---|
 | Elastic Beanstalk | Spring Boot JAR 실행, 서버 관리 |
-| RDS | 운영 DB. 보안 그룹으로 Elastic Beanstalk에서 오는 접속만 허용 |
-| S3 | 이미지 저장. Elastic Beanstalk 인스턴스에 IAM 역할을 부여해 접근 |
+| RDS (MySQL) | 운영 DB. 보안 그룹으로 Elastic Beanstalk에서 오는 접속만 허용 |
+| S3 (예정) | 이미지 저장. Elastic Beanstalk 인스턴스에 IAM 역할을 부여해 접근 |
 | GitHub Actions | `main` 브랜치에 push하면 테스트, 빌드 후 Elastic Beanstalk에 배포 |
 
 ## 트러블슈팅
