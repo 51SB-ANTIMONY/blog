@@ -19,7 +19,8 @@
   --foot-bg: #23343b;
   --foot-text: #e2eaea;
   --foot-sub: #9aabaf;
-  --serif: "Noto Serif KR", serif;
+  --serif: "Gowun Batang", "Noto Serif KR", serif;
+  --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   /* PC 본문 폭 1248px, 좁은 화면에서는 양옆 32px */
   --pad-x: max(32px, calc((100% - 1248px) / 2));
   color-scheme: light;
@@ -53,7 +54,17 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "IBM Plex Sans KR", system-ui, sans-serif;
+  font-family: var(--serif);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--sans);
+  font-weight: 600;
 }
 
 a {
@@ -294,9 +305,7 @@ textarea:focus-visible {
 }
 .news-side h2 {
   margin: 0;
-  font-family: var(--serif);
   font-size: 32px;
-  font-weight: 700;
 }
 .news-more {
   margin-top: 12px;
@@ -482,9 +491,7 @@ textarea:focus-visible {
 }
 .list-head h2 {
   margin: 0;
-  font-family: var(--serif);
   font-size: 32px;
-  font-weight: 700;
 }
 .list-head span {
   font-size: 14px;
@@ -585,9 +592,7 @@ textarea:focus-visible {
 }
 .list-head-text h2 {
   margin: 0;
-  font-family: var(--serif);
   font-size: 24px;
-  font-weight: 700;
 }
 .list-head-text span {
   font-size: 13px;
@@ -744,10 +749,8 @@ textarea:focus-visible {
 }
 .article-head h1 {
   margin: 0;
-  font-family: var(--serif);
   font-size: 40px;
   line-height: 1.35;
-  font-weight: 700;
   letter-spacing: -0.5px;
 }
 .article-meta {
@@ -879,9 +882,7 @@ textarea:focus-visible {
 }
 .missing h1 {
   margin: 0;
-  font-family: var(--serif);
   font-size: 36px;
-  font-weight: 700;
 }
 .missing p {
   margin: 0;
