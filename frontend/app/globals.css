@@ -1,6 +1,22 @@
 /* 프로토타입(ANTIMONY 블로그)의 색과 크기를 그대로 옮긴 스타일.
    테마는 운영체제 설정(라이트/다크)을 따른다. 1024px 이상은 PC, 그 아래는 모바일 배치. */
 
+/* LINE Seed Sans KR은 Google Fonts에 없어서 public/fonts에 직접 둔다. */
+@font-face {
+  font-family: "LINE Seed Sans KR";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/LINESeedSansKR-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "LINE Seed Sans KR";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/LINESeedSansKR-Bold.woff2") format("woff2");
+}
+
 :root {
   --bg: #f2f5f5;
   --panel: #e6ecec;
@@ -19,8 +35,8 @@
   --foot-bg: #23343b;
   --foot-text: #e2eaea;
   --foot-sub: #9aabaf;
-  --serif: "Gowun Batang", "Noto Serif KR", serif;
-  --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --body: "LINE Seed Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --heading: "IBM Plex Sans KR", "LINE Seed Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   /* PC 본문 폭 1248px, 좁은 화면에서는 양옆 32px */
   --pad-x: max(32px, calc((100% - 1248px) / 2));
   color-scheme: light;
@@ -54,7 +70,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--serif);
+  font-family: var(--body);
 }
 
 h1,
@@ -63,7 +79,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--sans);
+  font-family: var(--heading);
   font-weight: 600;
 }
 
@@ -529,7 +545,7 @@ textarea:focus-visible {
   padding: 3px 10px;
 }
 .post-title {
-  font-family: var(--serif);
+  font-family: var(--body);
   font-size: 24px;
   font-weight: 600;
   line-height: 1.45;
@@ -1018,7 +1034,7 @@ textarea:focus-visible {
   border: none;
   border-bottom: 2px solid var(--line);
   background: transparent;
-  font-family: var(--serif);
+  font-family: var(--body);
   font-size: 34px;
   font-weight: 700;
   color: var(--text);

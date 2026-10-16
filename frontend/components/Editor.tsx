@@ -163,7 +163,7 @@ export default function Editor({ article }: { article?: Article }) {
             <button type="button" className="tool" aria-label="굵게" disabled style={{ fontSize: 17, fontWeight: 800 }}>
               B
             </button>
-            <button type="button" className="tool" aria-label="기울임" disabled style={{ fontSize: 17, fontStyle: "italic", fontFamily: "var(--serif)" }}>
+            <button type="button" className="tool" aria-label="기울임" disabled style={{ fontSize: 17, fontStyle: "italic", fontFamily: "var(--body)" }}>
               I
             </button>
             <button type="button" className="tool only-desktop" aria-label="밑줄" disabled style={{ fontSize: 16, textDecoration: "underline" }}>
