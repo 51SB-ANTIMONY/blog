@@ -25,7 +25,7 @@ export default async function SearchPage({ searchParams }: Props) {
     <div className="app">
       <SiteHeader me={me} current="search" />
       <main className="main">
-        <section className="wrap page">
+        <section className="wrap page list-page">
           <h1>
             <Tx k="searchTitle" />
           </h1>

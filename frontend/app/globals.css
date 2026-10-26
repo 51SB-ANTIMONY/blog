@@ -773,6 +773,16 @@ html[lang="en"] .lang [data-lang="en"] {
   border-bottom-color: var(--pt);
 }
 
+/* 목록 화면(전체 기록, 카테고리, 기도편지, 검색)의 본문 폭은 글 상세(.art)와 같은 720px */
+.wrap.list-page {
+  max-width: calc(720px + 64px);
+}
+.list-page .feat {
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 32px;
+  padding: 32px;
+}
+
 /* 전체 기록 */
 .notice {
   margin-top: 32px;
@@ -1085,17 +1095,6 @@ mark {
   max-width: 720px;
   margin: 0 auto;
   padding: 56px 0 96px;
-}
-.back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  font-size: 15px;
-  color: var(--sub);
-}
-.back:hover {
-  color: var(--lk);
 }
 .ahead {
   display: flex;
@@ -2020,7 +2019,8 @@ mark {
     font-size: 13px;
     line-height: 1.5;
   }
-  .feat {
+  .feat,
+  .list-page .feat {
     grid-template-columns: 1fr;
     padding: 0;
     gap: 0;

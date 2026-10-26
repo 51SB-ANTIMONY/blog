@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bi, Tx } from "@/components/Bi";
+import { Tx } from "@/components/Bi";
 import { ArticleLabel, Author } from "@/components/Labels";
 import Markdown from "@/components/Markdown";
 import OwnerActions from "@/components/OwnerActions";
@@ -74,9 +74,6 @@ export default async function ArticlePage({ params }: Props) {
       <main className="main">
         <div className="wrap">
           <article className="art">
-            <Link href={listHref} className="back">
-              <ArrowLeftIcon /> <Bi ko={category.back} en={`Back to ${category.en}`} />
-            </Link>
             <header className="ahead">
               <span className="meta">
                 <b className="acat">

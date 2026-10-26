@@ -1,5 +1,7 @@
-// accounts 화면 주소 (내 계정)
-export const ACCOUNTS_URL = process.env.NEXT_PUBLIC_ACCOUNTS_URL ?? "http://localhost:3001";
+// accounts 주소. 첫 화면(/)은 로그인했으면 내 계정, 아니면 로그인 화면으로 보낸다.
+// 환경 변수가 없으면 운영은 accounts.antimony.kr, 로컬은 localhost:3001
+export const ACCOUNTS_URL =
+  process.env.NEXT_PUBLIC_ACCOUNTS_URL ?? (process.env.NODE_ENV === "production" ? "https://accounts.antimony.kr" : "http://localhost:3001");
 
 // blog backend가 accounts 로그인을 시작하는 주소 (proxy.ts가 Spring에 넘긴다)
 export const LOGIN_PATH = "/oauth2/authorization/accounts";

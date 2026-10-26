@@ -42,7 +42,7 @@ function AllList({ articles, raw }: { articles: Article[]; raw: { sort?: string;
   const all = buildAll(articles, raw);
   const pageHref = (page: number) => articlesHref({ sort: all.sort, page });
   return (
-    <section className="wrap page">
+    <section className="wrap page list-page">
       <h1>
         <Tx k="allTitle" />
       </h1>
@@ -142,7 +142,7 @@ function AllList({ articles, raw }: { articles: Article[]; raw: { sort?: string;
 function CategoryList({ articles, category }: { articles: Article[]; category: CategoryInfo }) {
   const posts = byCategory(articles, category);
   return (
-    <section className="wrap page">
+    <section className="wrap page list-page">
       <h1>
         <Bi ko={category.ko} en={category.en} />
       </h1>
@@ -180,7 +180,7 @@ function PrayerList({ articles, rawYear }: { articles: Article[]; rawYear?: stri
   const featured = prayer.featured;
   const featuredPhoto = featured && photoOf(featured.id);
   return (
-    <section className="wrap page">
+    <section className="wrap page list-page">
       <h1>
         <Bi ko="기도편지" en="Prayer Letters" />
       </h1>

@@ -63,8 +63,8 @@ export default function SiteHeader({ me, current }: { me: Me | null; current?: M
           <ThemeToggle />
           {me ? (
             <span className="me">
-              {/* 닉네임을 누르면 accounts의 내 계정 화면 */}
-              <a href={`${ACCOUNTS_URL}/account`} className="me-name" title={me.nickname}>
+              {/* 닉네임을 누르면 accounts(accounts.antimony.kr)로 */}
+              <a href={ACCOUNTS_URL} className="me-name" title={me.nickname}>
                 <Bi ko={`${me.nickname}님`} en={`Hi, ${me.nickname}`} />
               </a>
               <LogoutButton />
