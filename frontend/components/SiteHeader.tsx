@@ -1,70 +1,91 @@
 import Link from "next/link";
-import { ACCOUNTS_URL, LOGIN_PATH } from "@/lib/links";
+import { CATEGORIES } from "@/lib/categories";
+import { ACCOUNTS_URL, LOGIN_PATH, articlesHref } from "@/lib/links";
 import type { Me } from "@/lib/types";
+import { Bi, SrOnly, Tx } from "./Bi";
 import Logo from "./Logo";
 import LogoutButton from "./LogoutButton";
+import { LangToggle, ThemeToggle } from "./PrefToggles";
 import { PencilIcon, SearchIcon } from "./icons";
 
-type Props = {
-  me: Me | null;
-  // home: 홈 헤더 (글쓰기 버튼이 채워진 색) / post: 글 상세 헤더 (글쓰기 버튼이 테두리만)
-  variant: "home" | "post";
-};
+// 지금 보고 있는 메뉴 (all: 전체 기록, 카테고리 slug, search: 검색)
+export type MenuKey = "all" | "news" | "prayer" | "daily" | "study" | "search";
 
-export default function SiteHeader({ me, variant }: Props) {
+const MENU = [
+  { key: "all", href: articlesHref(), label: <Tx k="all" /> },
+  ...CATEGORIES.map((c) => ({ key: c.slug, href: articlesHref({ category: c.slug }), label: <Bi ko={c.ko} en={c.en} /> })),
+];
+
+function MenuLinks({ current }: { current?: MenuKey }) {
+  return MENU.map((m) => (
+    <Link key={m.key} href={m.href} className="mi" aria-current={m.key === current ? "page" : undefined}>
+      {m.label}
+    </Link>
+  ));
+}
+
+function WriteLink({ className }: { className: string }) {
   return (
-    <header className={variant === "post" ? "header is-post" : "header"}>
-      <Logo />
+    <Link href="/write" className={className}>
+      <PencilIcon />
+      <span className="wtxt">
+        <Tx k="write" />
+      </span>
+    </Link>
+  );
+}
 
-      {/* PC */}
-      <div className="header-right only-desktop">
-        <button type="button" className="search-btn" aria-label="검색 (준비 중)" disabled>
-          <SearchIcon />
-        </button>
-        {me ? (
-          <div className="auth">
-            {/* 닉네임을 누르면 accounts의 내 계정 화면 */}
-            <a href={`${ACCOUNTS_URL}/account`} className="auth-name">
-              <b>{me.nickname}</b>님
-            </a>
-            <Link href="/write" className={variant === "home" ? "pill-primary is-write" : "pill-outline"}>
-              <PencilIcon />
-              글쓰기
-            </Link>
-            <LogoutButton />
-          </div>
-        ) : (
-          <div className="auth">
-            <a href={LOGIN_PATH} className="text-link">
-              로그인
-            </a>
-            <a href={`${ACCOUNTS_URL}/signup`} className="pill-primary is-wide">
-              회원가입
-            </a>
-          </div>
-        )}
-      </div>
+function SearchLink({ current, className }: { current?: MenuKey; className: string }) {
+  return (
+    <Link href="/articles/search" className={className} aria-current={current === "search" ? "page" : undefined}>
+      <SearchIcon />
+      <SrOnly k="search" />
+    </Link>
+  );
+}
 
-      {/* 모바일 */}
-      <div className="mobile-icons only-mobile">
-        {variant === "home" && (
-          <button type="button" className="icon-btn" aria-label="검색 (준비 중)" disabled>
-            <SearchIcon size={20} />
-          </button>
-        )}
-        {me ? (
-          <>
-            <Link href="/write" className="icon-btn" aria-label="글쓰기">
-              <PencilIcon size={20} />
-            </Link>
-            {variant === "home" && <LogoutButton className="text-btn is-mobile" />}
-          </>
-        ) : (
-          <a href={LOGIN_PATH} className="pill-login-mobile">
-            로그인
-          </a>
-        )}
+// 상단바. 넓은 화면은 한 줄, 좁은 화면은 메뉴가 둘째 줄로 내려간다 (.hdr-dsk, .hdr-mob)
+export default function SiteHeader({ me, current }: { me: Me | null; current?: MenuKey }) {
+  return (
+    <header className="top">
+      <div className="wrap bar">
+        <Logo />
+        <nav className="menu hdr-dsk" aria-labelledby="menu-h">
+          <span id="menu-h" className="sr-only">
+            <Tx k="mainMenu" />
+          </span>
+          <MenuLinks current={current} />
+        </nav>
+        <div className="right">
+          {me && <WriteLink className="wbtn hdr-dsk" />}
+          <SearchLink current={current} className="ib hdr-dsk" />
+          <LangToggle />
+          <ThemeToggle />
+          {me ? (
+            <span className="me">
+              {/* 닉네임을 누르면 accounts의 내 계정 화면 */}
+              <a href={`${ACCOUNTS_URL}/account`} className="me-name" title={me.nickname}>
+                <Bi ko={`${me.nickname}님`} en={`Hi, ${me.nickname}`} />
+              </a>
+              <LogoutButton />
+            </span>
+          ) : (
+            <a href={LOGIN_PATH} className="pillbtn">
+              <Tx k="login" />
+            </a>
+          )}
+        </div>
       </div>
+      <nav className="wrap menu2 hdr-mob" aria-labelledby="menu2-h">
+        <span id="menu2-h" className="sr-only">
+          <Tx k="mainMenu" />
+        </span>
+        <MenuLinks current={current} />
+        <span className="menu2-tools">
+          {me && <WriteLink className="wbtn" />}
+          <SearchLink current={current} className="ib" />
+        </span>
+      </nav>
     </header>
   );
 }

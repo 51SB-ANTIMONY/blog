@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Tx } from "@/components/Bi";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
 import { fetchMe } from "@/lib/server";
@@ -7,16 +8,20 @@ import { fetchMe } from "@/lib/server";
 export default async function NotFound() {
   const me = await fetchMe();
   return (
-    <div className="page">
-      <SiteHeader me={me} variant="post" />
-      <main className="article-main">
-        <div className="article-col">
-          <div className="missing">
+    <div className="app">
+      <SiteHeader me={me} />
+      <main className="main">
+        <div className="wrap">
+          <div className="art missing">
             <span className="missing-code">404</span>
-            <h1>글을 찾을 수 없어요</h1>
-            <p>삭제되었거나 주소가 잘못되었을 수 있어요.</p>
-            <Link href="/" className="pill-primary">
-              목록으로 가기
+            <h1>
+              <Tx k="notFoundTitle" />
+            </h1>
+            <p>
+              <Tx k="notFoundDesc" />
+            </p>
+            <Link href="/" className="btn">
+              <Tx k="toHome" />
             </Link>
           </div>
         </div>
