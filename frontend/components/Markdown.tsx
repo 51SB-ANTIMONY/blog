@@ -6,8 +6,13 @@ import remarkBreaks from "remark-breaks";
 // node(문서 구조 정보)는 HTML 속성이 아니라서 빼고 넘긴다.
 /* eslint-disable @typescript-eslint/no-unused-vars */
 const components: Components = {
-  // 글 제목이 h1이라, 본문의 # 제목은 h2로 낮춘다.
-  h1: ({ node, ...props }) => <h2 {...props} />,
+  // 소제목은 1~4단계(# ~ ####). 글 제목이 h1이라 한 단계씩 낮춰 그리고, 크기는 단계(h-1 ~ h-4)로 정한다.
+  h1: ({ node, ...props }) => <h2 {...props} className="h-1" />,
+  h2: ({ node, ...props }) => <h3 {...props} className="h-2" />,
+  h3: ({ node, ...props }) => <h4 {...props} className="h-3" />,
+  h4: ({ node, ...props }) => <h5 {...props} className="h-4" />,
+  h5: ({ node, ...props }) => <h6 {...props} className="h-4" />,
+  h6: ({ node, ...props }) => <h6 {...props} className="h-4" />,
   // 번호 목록은 CSS 카운터로 번호를 그린다. "3. 항목"처럼 3부터 시작하면 그 번호부터.
   ol: ({ node, start, ...props }) => <ol {...props} style={{ counterReset: `item ${(start ?? 1) - 1}` }} />,
 };

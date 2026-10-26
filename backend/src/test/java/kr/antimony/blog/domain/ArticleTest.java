@@ -39,6 +39,12 @@ class ArticleTest {
                 .isEqualTo("int a = 1; 끝");
     }
 
+    @DisplayName("요약: 줄바꿈 표시(줄 끝의 \\)는 빼고 줄바꿈은 한 칸으로")
+    @Test
+    void lineBreaks() {
+        assertThat(excerptOf("첫 줄\\\n\\\n둘째 줄")).isEqualTo("첫 줄 둘째 줄");
+    }
+
     @DisplayName("요약: 낱말 속 밑줄(snake_case)과 문장 속 숫자는 그대로 둔다")
     @Test
     void keepsPlainText() {

@@ -150,6 +150,19 @@ export function ListIcon() {
   );
 }
 
+export function ListOrderedIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 5h1.5v4" />
+      <path d="M4 9h3" />
+      <path d="M4 14.5a1.5 1.5 0 0 1 3 .2c0 .8-3 2.3-3 3.3h3" />
+      <path d="M10 7h10" />
+      <path d="M10 12h10" />
+      <path d="M10 17h10" />
+    </svg>
+  );
+}
+
 export function LinkIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">

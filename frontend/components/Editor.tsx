@@ -9,8 +9,8 @@ import { useLang } from "@/lib/prefs";
 import type { Article, Category } from "@/lib/types";
 import { Tx } from "./Bi";
 import Logo from "./Logo";
+import MarkdownEditor from "./MarkdownEditor";
 import { ThemeToggle } from "./PrefToggles";
-import { CodeIcon, LinkIcon, ListIcon, PhotoIcon, QuoteIcon } from "./icons";
 
 const VISIBILITY = [
   { key: "public", label: "vis1", desc: "vis1d" },
@@ -27,7 +27,7 @@ function Soon() {
   );
 }
 
-// 새 글 쓰기(article 없음)와 글 수정(article 있음). 본문은 Markdown으로 쓴다.
+// 새 글 쓰기(article 없음)와 글 수정(article 있음). 본문은 서식이 보이는 편집기로 쓰고 Markdown으로 저장한다.
 export default function Editor({ article }: { article?: Article }) {
   const router = useRouter();
   const lang = useLang();
@@ -151,58 +151,20 @@ export default function Editor({ article }: { article?: Article }) {
             )}
           </div>
 
-          <div className="edtb" role="toolbar" aria-label={text(lang, "toolbar")}>
-            <button disabled type="button" aria-label="H">
-              H
-            </button>
-            <button disabled type="button" aria-label="B" className="tb-b">
-              B
-            </button>
-            <button disabled type="button" aria-label="I" className="tb-i">
-              I
-            </button>
-            <button disabled type="button" aria-label="U" className="tb-u">
-              U
-            </button>
-            <span className="tb-sep" />
-            <button disabled type="button" aria-label="quote">
-              <QuoteIcon />
-            </button>
-            <button disabled type="button" aria-label="list">
-              <ListIcon />
-            </button>
-            <button disabled type="button" aria-label="link">
-              <LinkIcon />
-            </button>
-            <button disabled type="button" aria-label="code">
-              <CodeIcon />
-            </button>
-            <span className="tb-grow" />
-            <button disabled type="button" className="tb-photo">
-              <PhotoIcon />
-              <Tx k="photoAdd" />
-            </button>
-          </div>
-
           <div className="ed-field">
-            <label htmlFor="ed-body" className="sr-only">
+            <span id="ed-body-label" className="sr-only">
               <Tx k="wBody" />
-            </label>
-            <textarea
-              id="ed-body"
-              className={show(contentErrText, "content") ? "edbody err" : "edbody"}
-              placeholder={text(lang, "bodyPh")}
-              value={content}
-              onChange={(e) => {
-                setContent(e.target.value);
+            </span>
+            <MarkdownEditor
+              initial={article?.content ?? ""}
+              onChange={(markdown) => {
+                setContent(markdown);
                 clear("content");
               }}
-              aria-invalid={show(contentErrText, "content")}
-              aria-describedby={show(contentErrText, "content") ? "ed-body-err ed-md" : "ed-md"}
+              invalid={show(contentErrText, "content")}
+              labelId="ed-body-label"
+              describedBy={show(contentErrText, "content") ? "ed-body-err" : ""}
             />
-            <p id="ed-md" className="ed-hint">
-              <Tx k="mdHint" />
-            </p>
             {show(contentErrText, "content") && (
               <p id="ed-body-err" role="alert" className="ederr">
                 {contentErrText}

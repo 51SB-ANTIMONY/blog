@@ -91,7 +91,8 @@ public class Article {
                 .replaceAll("(?m)^\\s{0,3}#{1,6}\\s+", "")                    // 소제목 (## 제목)
                 .replaceAll("(?m)^(\\s{0,3}>\\s?)+", "")                      // 인용 (> 글)
                 .replaceAll("(?m)^\\s*([-*+]|\\d+[.)])\\s+", "")              // 목록 (- 항목, 1. 항목)
-                .replaceAll("\\*\\*|__|~~|[*`]", "");                         // 굵게, 기울임, 취소선, 코드
+                .replaceAll("\\*\\*|__|~~|[*`]", "")                          // 굵게, 기울임, 취소선, 코드
+                .replaceAll("\\\\(?=\\r?\\n)", "");                           // 줄바꿈 표시 (줄 끝의 \)
     }
 
     private static String blankToNull(String value) {

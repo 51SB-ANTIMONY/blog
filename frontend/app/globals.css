@@ -1199,10 +1199,10 @@ mark {
 .body {
   margin-top: 36px;
   font-size: 18px;
-  line-height: 1.95;
+  line-height: 1.8;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 8px;
 }
 .body p,
 .body ul,
@@ -1211,16 +1211,34 @@ mark {
 .body blockquote {
   margin: 0;
 }
-.body h2 {
-  font-size: 26px;
-  margin-top: 14px;
+/* 문단과 문단 사이는 빈 줄 하나 (엔터 두 번과 같은 모양). 예전 글의 문단 구분도 이렇게 보인다 */
+.body > p + p {
+  margin-top: calc(1.8em - 8px);
 }
-.body h3,
-.body h4,
-.body h5,
-.body h6 {
-  font-size: 21px;
-  margin-top: 10px;
+/* 소제목 1~4단계: 글 화면(.h-1 ~ .h-4)과 편집기(h1 ~ h4)가 같은 크기 */
+.body .h-1,
+.edbody h1 {
+  font-size: 28px;
+  line-height: 1.35;
+  margin-top: 16px;
+}
+.body .h-2,
+.edbody h2 {
+  font-size: 24px;
+  line-height: 1.4;
+  margin-top: 12px;
+}
+.body .h-3,
+.edbody h3 {
+  font-size: 20px;
+  line-height: 1.45;
+  margin-top: 8px;
+}
+.body .h-4,
+.edbody h4 {
+  font-size: 18px;
+  line-height: 1.5;
+  margin-top: 6px;
 }
 .body a {
   color: var(--lk);
@@ -1231,13 +1249,13 @@ mark {
   color: var(--lkh);
 }
 .body blockquote {
-  margin: 6px 0;
+  margin: 2px 0;
   padding: 4px 0 4px 20px;
   border-left: 3px solid var(--dc);
   color: var(--sub);
 }
 .body blockquote > * + * {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 .body ul {
   padding-left: 1.4em;
@@ -1247,19 +1265,19 @@ mark {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 6px;
 }
 .body ol > li {
   counter-increment: item;
   display: flex;
   align-items: flex-start;
-  gap: 18px;
+  gap: 12px;
 }
 .body ol > li::before {
   content: counter(item);
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   background: var(--card);
   color: var(--lk);
@@ -1267,9 +1285,12 @@ mark {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
-  margin-top: -3px;
+  margin-top: 2px;
+}
+.body ul > li + li {
+  margin-top: 4px;
 }
 .body li > p {
   margin: 0;
@@ -1561,16 +1582,33 @@ mark {
   width: 100%;
 }
 .edbody {
-  height: 640px;
+  min-height: 640px;
   padding: 24px;
   border: 1px solid var(--bd2);
   border-radius: 12px;
   background: var(--inp);
   color: var(--tx);
-  font-size: 17px;
-  line-height: 1.8;
-  resize: vertical;
   width: 100%;
+  outline: none;
+}
+/* 편집 중에도 글 화면(.body)과 같은 모양으로 보인다 */
+.edbody.body {
+  margin-top: 0;
+}
+.edbody:focus {
+  border-color: var(--pt);
+  box-shadow: 0 0 0 1px var(--pt);
+}
+.edbody > :first-child {
+  margin-top: 0;
+}
+/* 비어 있을 때 안내 문구 (Placeholder) */
+.edbody > p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--sub);
+  pointer-events: none;
+  display: block;
+  height: 0;
 }
 .edt.err,
 .edbody.err,
@@ -1582,14 +1620,7 @@ mark {
   font-size: 14px;
   color: var(--err);
 }
-.ed-hint {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--sub);
-}
 .edtb {
-  opacity: 0.5;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1597,6 +1628,10 @@ mark {
   background: var(--card);
   border-radius: 12px;
   flex-wrap: wrap;
+  /* 긴 글을 쓰는 동안에도 도구가 보이게 상단바 아래에 붙는다 */
+  position: sticky;
+  top: 72px;
+  z-index: 10;
 }
 .edtb button {
   width: 44px;
@@ -1610,7 +1645,17 @@ mark {
   justify-content: center;
   font-size: 16px;
   font-weight: 700;
-  cursor: not-allowed;
+  cursor: pointer;
+}
+.edtb button:hover:not(:disabled) {
+  background: var(--bg);
+  color: var(--lk);
+}
+.edtb button[aria-pressed="true"],
+.edtb button.is-on {
+  background: var(--bg);
+  color: var(--lk);
+  box-shadow: inset 0 0 0 1px var(--pt);
 }
 .edtb .tb-b {
   font-weight: 800;
@@ -1619,9 +1664,30 @@ mark {
   font-style: italic;
   font-weight: 400;
 }
-.edtb .tb-u {
-  text-decoration: underline;
-  font-weight: 400;
+.tb-hrow {
+  flex-basis: 100%;
+  display: flex;
+  gap: 4px;
+  padding-top: 4px;
+  margin-top: 2px;
+  border-top: 1px solid var(--ln);
+}
+.edtb .tb-h {
+  width: auto;
+  padding: 0 12px;
+  font-family: var(--heading);
+}
+.edtb .tb-h1 {
+  font-size: 18px;
+}
+.edtb .tb-h2 {
+  font-size: 16px;
+}
+.edtb .tb-h3 {
+  font-size: 14px;
+}
+.edtb .tb-h4 {
+  font-size: 13px;
 }
 .tb-sep {
   width: 1px;
@@ -1641,6 +1707,10 @@ mark {
   font-size: 15px;
   font-weight: 600;
   gap: 8px;
+}
+.edtb .tb-photo:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .soon {
   opacity: 0.5;
@@ -2000,26 +2070,34 @@ mark {
   }
   .body {
     font-size: 16px;
-    line-height: 1.9;
-    gap: 18px;
+    line-height: 1.75;
+    gap: 6px;
     margin-top: 24px;
   }
-  .body h2 {
-    font-size: 22px;
+  .body .h-1,
+  .edbody h1 {
+    font-size: 24px;
   }
-  .body h3,
-  .body h4,
-  .body h5,
-  .body h6 {
-    font-size: 19px;
+  .body .h-2,
+  .edbody h2 {
+    font-size: 21px;
+  }
+  .body .h-3,
+  .edbody h3 {
+    font-size: 18px;
+  }
+  .body .h-4,
+  .edbody h4 {
+    font-size: 16px;
   }
   .body ol > li {
-    gap: 14px;
+    gap: 10px;
   }
   .body ol > li::before {
-    width: 36px;
-    height: 36px;
-    font-size: 15px;
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+    margin-top: 1px;
   }
   .pn .nx {
     padding-left: 14px;
@@ -2051,7 +2129,11 @@ mark {
     width: 100%;
   }
   .edbody {
-    height: 360px;
+    min-height: 360px;
+    padding: 16px;
+  }
+  .edtb {
+    top: 60px;
   }
   .edt {
     font-size: 26px;
