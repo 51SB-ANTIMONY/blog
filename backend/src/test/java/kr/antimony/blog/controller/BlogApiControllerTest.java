@@ -22,6 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -313,6 +314,55 @@ class BlogApiControllerTest {
 
         mockMvc.perform(get("/api/articles"))
                 .andExpect(jsonPath("$[0].excerpt").value("가".repeat(120) + "…"));
+    }
+
+    @DisplayName("기도편지(PRAYER) 카테고리로 글을 쓰고, 그 카테고리로 거를 수 있다")
+    @Test
+    public void prayerCategory() throws Exception {
+        String requestBody = objectMapper.writeValueAsString(new AddArticleRequest("10월 기도편지", "본문", Category.PRAYER, null));
+
+        mockMvc.perform(post("/api/articles")
+                        .with(loginAs(user))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(requestBody))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.category").value("PRAYER"));
+        createArticle(user);
+
+        mockMvc.perform(get("/api/articles").param("category", "PRAYER"))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].title").value("10월 기도편지"));
+    }
+
+    @DisplayName("요약이 없으면 본문의 Markdown 기호를 빼고 글자만 요약으로 쓴다")
+    @Test
+    public void markdownExcerpt() throws Exception {
+        String content = """
+                ## 이렇게 달라졌어요
+
+                > 인용한 **문장**
+
+                - [링크](https://antimony.kr) 항목
+                1. 둘째
+                """;
+        blogRepository.save(Article.builder().author(user).title("서식 글").content(content)
+                .category(Category.NEWS).build());
+
+        mockMvc.perform(get("/api/articles"))
+                .andExpect(jsonPath("$[0].content").value(content))
+                .andExpect(jsonPath("$[0].excerpt").value("이렇게 달라졌어요 인용한 문장 링크 항목 둘째"));
+    }
+
+    @DisplayName("작성·수정 시각에는 시간대가 붙는다 (예: 2026-10-27T08:00:00+09:00)")
+    @Test
+    public void timesHaveOffset() throws Exception {
+        createArticle(user);
+
+        String offset = ".*([+-]\\d{2}:\\d{2}|Z)$";
+        mockMvc.perform(get("/api/articles"))
+                .andExpect(jsonPath("$[0].createdAt").value(matchesPattern(offset)))
+                .andExpect(jsonPath("$[0].updatedAt").value(matchesPattern(offset)));
     }
 
     @DisplayName("/api/me: 로그인하지 않으면 401, 로그인하면 blog 닉네임")

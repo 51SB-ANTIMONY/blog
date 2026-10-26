@@ -71,13 +71,27 @@ public class Article {
         this.summary = blankToNull(summary);
     }
 
-    // 목록에 보일 요약: 요약을 썼으면 그것, 아니면 본문 앞부분 (줄바꿈과 연속 공백은 한 칸으로)
+    // 목록에 보일 요약: 요약을 썼으면 그것, 아니면 본문 앞부분
+    // (Markdown 기호는 빼고, 줄바꿈과 연속 공백은 한 칸으로)
     public String excerpt() {
         if (summary != null) {
             return summary;
         }
-        String text = content.strip().replaceAll("\\s+", " ");
+        String text = plainText(content).strip().replaceAll("\\s+", " ");
         return text.length() <= EXCERPT_LENGTH ? text : text.substring(0, EXCERPT_LENGTH) + "…";
+    }
+
+    // 본문은 Markdown으로 쓴다. 요약에는 서식 기호 없이 글자만 남긴다.
+    static String plainText(String markdown) {
+        return markdown
+                .replaceAll("(?m)^\\s*```.*$", "")                            // 코드 블록 울타리 (```java)
+                .replaceAll("!\\[([^]]*)]\\([^)]*\\)", "$1")                  // 사진 ![설명](주소) → 설명
+                .replaceAll("\\[([^]]*)]\\([^)]*\\)", "$1")                   // 링크 [글자](주소) → 글자
+                .replaceAll("(?m)^\\s{0,3}([-*_])(\\s*\\1){2,}\\s*$", "")      // 구분선 (---, ***)
+                .replaceAll("(?m)^\\s{0,3}#{1,6}\\s+", "")                    // 소제목 (## 제목)
+                .replaceAll("(?m)^(\\s{0,3}>\\s?)+", "")                      // 인용 (> 글)
+                .replaceAll("(?m)^\\s*([-*+]|\\d+[.)])\\s+", "")              // 목록 (- 항목, 1. 항목)
+                .replaceAll("\\*\\*|__|~~|[*`]", "");                         // 굵게, 기울임, 취소선, 코드
     }
 
     private static String blankToNull(String value) {

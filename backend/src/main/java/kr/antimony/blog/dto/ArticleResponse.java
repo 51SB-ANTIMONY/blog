@@ -5,6 +5,8 @@ import kr.antimony.blog.domain.Category;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 @Getter
 public class ArticleResponse {
@@ -20,8 +22,9 @@ public class ArticleResponse {
     private final String author;
     // 로그인한 사용자가 이 글의 작성자인가. 화면에서 수정·삭제 버튼을 보여 줄지 정한다
     private final boolean editable;
-    private final LocalDateTime createdAt;
-    private final LocalDateTime updatedAt;
+    // 작성·수정 시각. 시간대(+09:00 등)를 붙여 보내서, 화면이 서버 시간대와 상관없이 한국 시간으로 바꿀 수 있게 한다
+    private final OffsetDateTime createdAt;
+    private final OffsetDateTime updatedAt;
 
     // accountsSub: 로그인한 사용자의 sub. 로그인하지 않았으면 null
     public ArticleResponse(Article article, String accountsSub) {
@@ -33,7 +36,12 @@ public class ArticleResponse {
         this.excerpt = article.excerpt();
         this.author = article.getAuthor().getNickname();
         this.editable = accountsSub != null && accountsSub.equals(article.getAuthor().getAccountsSub());
-        this.createdAt = article.getCreatedAt();
-        this.updatedAt = article.getUpdatedAt();
+        this.createdAt = withZone(article.getCreatedAt());
+        this.updatedAt = withZone(article.getUpdatedAt());
+    }
+
+    // 엔티티의 시각은 서버 시간대 기준이다 (JPA가 DB의 UTC 값을 서버 시간대로 바꿔 읽는다)
+    private static OffsetDateTime withZone(LocalDateTime time) {
+        return time == null ? null : time.atZone(ZoneId.systemDefault()).toOffsetDateTime();
     }
 }

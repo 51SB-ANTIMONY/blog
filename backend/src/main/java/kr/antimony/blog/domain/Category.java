@@ -9,7 +9,8 @@ import lombok.RequiredArgsConstructor;
 public enum Category {
     DAILY("일상"),
     STUDY("학습"),
-    NEWS("뉴스");
+    NEWS("소식"),
+    PRAYER("기도편지");
 
     private final String label;
 }
