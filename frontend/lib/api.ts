@@ -1,6 +1,6 @@
 // 브라우저에서 blog backend(Spring) API를 부른다. 같은 주소(Next.js의 rewrites)로 보내므로 세션 쿠키가 함께 간다.
 import { LOGIN_PATH } from "./links";
-import type { Article, Category } from "./types";
+import type { Article, Category, Comment } from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -63,6 +63,16 @@ export const api = {
   create: (input: ArticleInput) => request<Article>("POST", "/api/articles", input),
   update: (id: number, input: ArticleInput) => request<Article>("PUT", `/api/articles/${id}`, input),
   remove: (id: number) => request<void>("DELETE", `/api/articles/${id}`),
+};
+
+// parentId: 답글이면 맨 위 댓글의 id, 댓글이면 null
+export type CommentInput = { content: string; locked: boolean; parentId: number | null };
+
+export const commentApi = {
+  list: (articleId: number) => request<Comment[]>("GET", `/api/articles/${articleId}/comments`),
+  create: (articleId: number, input: CommentInput) => request<Comment>("POST", `/api/articles/${articleId}/comments`, input),
+  update: (id: number, input: { content: string; locked: boolean }) => request<Comment>("PUT", `/api/comments/${id}`, input),
+  remove: (id: number) => request<void>("DELETE", `/api/comments/${id}`),
 };
 
 // 로그인이 끝나면 돌아올 화면. Spring은 로그인 후 첫 화면(/)으로 보내므로, 거기서 이 값을 보고 이동한다.

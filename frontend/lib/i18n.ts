@@ -105,6 +105,21 @@ const ko = {
   commentsHead: "댓글 허용",
   schedHead: "예약 게시",
   soonNote: "흐리게 표시된 기능은 준비 중이에요.",
+  // 댓글
+  comments: "댓글",
+  cPh: "댓글을 입력하세요",
+  rPh: "답글을 입력하세요",
+  cSubmit: "등록",
+  cSave: "저장",
+  reply: "댓글",
+  cConfirm: "삭제할까요?",
+  cDeleted: "삭제된 댓글입니다.",
+  cMasked: "잠긴 댓글입니다.",
+  cLoginNote: "댓글을 남기려면 로그인해 주세요.",
+  cEmpty: "아직 댓글이 없어요.",
+  cEmptyErr: "내용을 입력해 주세요.",
+  cFailed: "댓글을 처리하지 못했어요.",
+  lockOn: "잠금",
 };
 
 export type TextKey = keyof typeof ko;
@@ -211,6 +226,20 @@ const en: Record<TextKey, string> = {
   commentsHead: "Allow comments",
   schedHead: "Schedule",
   soonNote: "Dimmed features are coming soon.",
+  comments: "Comments",
+  cPh: "Write a comment",
+  rPh: "Write a reply",
+  cSubmit: "Post",
+  cSave: "Save",
+  reply: "Comment",
+  cConfirm: "Delete?",
+  cDeleted: "This comment was deleted.",
+  cMasked: "This comment is locked.",
+  cLoginNote: "Please log in to leave a comment.",
+  cEmpty: "No comments yet.",
+  cEmptyErr: "Please enter some text.",
+  cFailed: "Couldn't process the comment.",
+  lockOn: "Lock",
 };
 
 export const TEXT: Record<Lang, Record<TextKey, string>> = { ko, en };

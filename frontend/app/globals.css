@@ -1322,6 +1322,236 @@ mark {
   border-top: 1px solid var(--ln);
 }
 
+/* 댓글 */
+.cm {
+  margin-top: 56px;
+  padding-top: 28px;
+  border-top: 1px solid var(--ln);
+}
+.cmh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cmt {
+  margin: 0;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cmn {
+  font-family: var(--body);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lk);
+}
+.cmnote {
+  margin: 16px 0 0;
+  font-size: 15px;
+  color: var(--sub);
+}
+.cmerr {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--err);
+}
+.cml,
+.rps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cml {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--ln);
+}
+.thr {
+  padding: 28px 0;
+  border-bottom: 1px solid var(--ln);
+}
+.cmi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cmm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--sub);
+}
+.cmm b {
+  font-size: 15px;
+  color: var(--tx);
+}
+.cmb {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.7;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.cmd {
+  color: var(--sub);
+}
+.mk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lk {
+  display: inline-flex;
+  vertical-align: -2px;
+  margin-left: 5px;
+  color: var(--sub);
+}
+.cact {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.cb {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--bd2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sub);
+  font-size: 13px;
+  cursor: pointer;
+}
+.cb:hover {
+  color: var(--lk);
+  border-color: var(--lk);
+}
+.cb.danger:hover {
+  color: var(--err);
+  border-color: var(--err);
+}
+.cb:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.cact .cb {
+  min-height: 26px;
+  padding: 0 10px;
+  line-height: 1;
+}
+.cact .cf {
+  font-size: 13px;
+}
+.cb.cx {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+.btn.sm {
+  min-height: 40px;
+  padding: 8px 16px;
+  font-size: 14px;
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.cmta {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 88px;
+  padding: 12px 14px;
+  border: 1px solid var(--bd2);
+  border-radius: 10px;
+  background: var(--inp);
+  color: var(--tx);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+.cmta:focus {
+  border-color: var(--pt);
+}
+.cma {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.cmi > .cma {
+  margin-top: 6px;
+}
+.lkt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sub);
+  cursor: pointer;
+}
+.lkt svg {
+  width: 26px;
+  height: 26px;
+}
+.lkt:hover,
+.lkt[aria-pressed="true"] {
+  color: var(--lk);
+}
+.lkt[aria-pressed="true"] rect {
+  fill: currentColor;
+}
+.rps {
+  margin-top: 18px;
+  padding-left: 20px;
+  border-left: 2px solid var(--ln);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+.rbox {
+  margin-top: 14px;
+  margin-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rl {
+  font-size: 13px;
+  color: var(--sub);
+}
+.cbox {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cbox.cl {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--card);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 15px;
+  color: var(--sub);
+}
+
 /* 이전 글, 다음 글 */
 .pn {
   margin-top: 48px;

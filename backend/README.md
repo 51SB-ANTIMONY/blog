@@ -65,11 +65,12 @@ src/main/java/kr/antimony/blog
 │       └── AccountsOidcUserService.java # 로그인 후 ID 토큰의 sub로 blog 회원을 찾거나 만듦
 ├── controller/
 │   ├── BlogApiController.java           # 글 REST API
+│   ├── CommentApiController.java        # 댓글 REST API
 │   ├── MeApiController.java             # 로그인 상태 (닉네임)
 │   └── CsrfApiController.java           # CSRF 토큰 발급
-├── service/                             # BlogService, UserService
-├── repository/                          # BlogRepository, UserRepository
-├── domain/                              # Article, Category, User
+├── service/                             # BlogService, CommentService, UserService
+├── repository/                          # BlogRepository, CommentRepository, UserRepository
+├── domain/                              # Article, Category, Comment, User
 ├── dto/                                 # 요청/응답 DTO
 └── exception/                           # API 예외, 공통 에러 응답, GlobalExceptionHandler
 
@@ -95,6 +96,17 @@ article
 ├── author_id   BIGINT    NOT NULL, FK → users.id
 ├── created_at  TIMESTAMP            (JPA Auditing)
 └── updated_at  TIMESTAMP            (JPA Auditing)
+
+comment
+├── id          BIGINT    PK, 자동 증가
+├── article_id  BIGINT    NOT NULL, FK → article.id (글을 지우면 댓글도 지움, ON DELETE CASCADE)
+├── parent_id   BIGINT    FK → comment.id   ← 답글이면 부모 댓글, 댓글이면 NULL (답글은 한 단계까지)
+├── author_id   BIGINT    NOT NULL, FK → users.id
+├── content     TEXT                 ← 삭제하면 비움 (NULL)
+├── locked      BOOLEAN   NOT NULL   ← 잠긴 댓글
+├── deleted     BOOLEAN   NOT NULL   ← 삭제해도 행은 남김 (답글이 부모 아래 그대로 보이도록)
+├── created_at  TIMESTAMP            (JPA Auditing)
+└── updated_at  TIMESTAMP            (JPA Auditing)
 ```
 - 아이디, 비밀번호, 이메일 같은 계정 정보는 accounts에만 있습니다. blog는 accounts 회원과 연결할 `sub`와 화면에 보여 줄 닉네임만 저장합니다.
 - 같은 사람은 아이디·비밀번호로 로그인하든 Google로 로그인하든 accounts에서 같은 `sub`를 받으므로, blog에서도 같은 회원입니다.
@@ -109,6 +121,10 @@ article
 | `GET` | `/api/articles/{id}` | 글 상세 조회 | 불필요 | 200 OK, 글 |
 | `PUT` | `/api/articles/{id}` | 글 수정. **작성자만** | 필요 | 200 OK, 글 |
 | `DELETE` | `/api/articles/{id}` | 글 삭제. **작성자만** | 필요 | 204 No Content |
+| `GET` | `/api/articles/{id}/comments` | 댓글 목록 (먼저 쓴 순서, 답글은 부모 댓글의 `replies`에) | 불필요 | 200 OK, 댓글 배열 |
+| `POST` | `/api/articles/{id}/comments` | 댓글, 답글 작성. 작성자는 로그인 사용자 | 필요 | 201 Created, 댓글 |
+| `PUT` | `/api/comments/{id}` | 댓글 수정 (내용, 잠금). **작성자만** | 필요 | 200 OK, 댓글 |
+| `DELETE` | `/api/comments/{id}` | 댓글 삭제. **작성자만** | 필요 | 204 No Content |
 | `GET` | `/api/me` | 로그인 상태. `{nickname}` | 필요 (안 했으면 401) | 200 OK |
 | `GET` | `/api/csrf` | CSRF 토큰 발급 (`XSRF-TOKEN` 쿠키) | 불필요 | 200 OK, `{token, headerName, parameterName}` |
 
@@ -139,6 +155,32 @@ article
 | `content` | 필수, 공백만은 안 됨 |
 | `category` | 필수. `DAILY`, `STUDY`, `NEWS`, `PRAYER` |
 | `summary` | 선택, 300자 이하 |
+
+**댓글 응답 형식**
+```json
+{
+  "id": 7,
+  "content": "댓글 내용",
+  "author": "닉네임",
+  "locked": false,
+  "deleted": false,
+  "editable": true,
+  "createdAt": "2026-11-12T09:30:00.123456+09:00",
+  "updatedAt": "2026-11-12T09:30:00.123456+09:00",
+  "replies": []
+}
+```
+- `locked`: 잠긴 댓글. 댓글 작성자, 글 작성자, (답글이면) 부모 댓글 작성자가 아니면 `content`와 `author`를 `null`로 보낸다. 화면이 아니라 서버가 가린다.
+- `deleted`: 삭제된 댓글. 행은 남기고 `content`, `author`는 `null`. 답글이 있는 댓글을 지워도 답글은 그대로 보인다.
+- `editable`: 로그인한 사용자가 댓글 작성자인가 (삭제된 댓글은 `false`).
+- `replies`: 답글 목록. 답글의 `replies`는 언제나 빈 배열이다.
+
+**댓글 입력값 규칙** (작성: `content`, `locked`, `parentId` / 수정: `content`, `locked`)
+| 필드 | 규칙 |
+|---|---|
+| `content` | 필수, 공백만은 안 됨 |
+| `locked` | 선택, 보내지 않으면 `false` |
+| `parentId` | 답글이면 부모 댓글 id. 같은 글의 삭제되지 않은 댓글이어야 하고, 답글에는 답글을 달 수 없음 (어기면 400) |
 
 ### 에러 응답
 모든 REST API의 에러는 같은 형식으로 응답합니다.
@@ -198,7 +240,7 @@ Content-Type: application/json
 | 로그인 후 | `AccountsOidcUserService`가 `sub`로 회원 저장, 닉네임 갱신 | blog 회원과 accounts 회원 연결 |
 | 세션 | 기본값 (필요할 때 생성), 쿠키 이름 `BLOG_SESSION` | 같은 localhost의 accounts 세션 쿠키(`ACCOUNTS_SESSION`)와 구별 |
 | CSRF | `csrf.spa()`: `XSRF-TOKEN` 쿠키 → `X-XSRF-TOKEN` 헤더 또는 `_csrf` 폼 값 | 세션 쿠키는 브라우저가 자동으로 보내므로 다른 사이트가 보낸 요청을 막아야 함 |
-| 인가 규칙 | `/api/csrf`, 글 읽기(`GET /api/articles`, `GET /api/articles/*`) 허용 → 나머지 `/api/**` 인증 필요 | 읽기는 누구나, 쓰기·수정·삭제는 로그인 |
+| 인가 규칙 | `/api/csrf`, 글·댓글 읽기(`GET /api/articles`, `GET /api/articles/*`, `GET /api/articles/*/comments`) 허용 → 나머지 `/api/**` 인증 필요 | 읽기는 누구나, 쓰기·수정·삭제는 로그인 |
 | 인증 실패 | `/api/**`는 `401` | 화면(Next.js)이 401을 받으면 accounts 로그인으로 보낸다 |
 | 로그아웃 | `OidcClientInitiatedLogoutSuccessHandler` | blog 세션과 함께 accounts 로그인도 끝냄 |
 
@@ -234,6 +276,7 @@ private static void authorizeArticleAuthor(Article article) {
     }
 }
 ```
+댓글 수정과 삭제도 `CommentService`에서 같은 방식으로 댓글 작성자인지 확인합니다 (다르면 403).
 
 ## 동작 흐름
 
@@ -354,6 +397,7 @@ accounts를 켜지 않아도 됩니다. 로그인한 상태는 `spring-security-
 | `AccountsLoginTest` | 로그인, 로그아웃 | 권한 요청 주소(client_id, 범위, PKCE, nonce), Next.js를 거친 요청이면 redirect_uri·로그아웃 후 주소가 3000, 브라우저용·서버용 주소, API 401, 로그아웃 → accounts `/connect/logout` |
 | `CsrfTest` | CSRF | 토큰 발급, 토큰 없으면 403, 쿠키 값을 헤더로 보내면 통과 (새 Spring 컨텍스트에서 실행) |
 | `BlogApiControllerTest` | 글 API | 작성, 목록, 상세, 수정, 삭제와 응답 형식(작성자 닉네임, 카테고리, 요약). 로그인 없이 읽기, `editable`, 카테고리 필터, 본문으로 만든 요약, `/api/me`. 없는 글 404, 작성자가 아닌 사용자의 수정·삭제 403, 입력값 검증 400 |
+| `CommentApiControllerTest` | 댓글 API | 작성, 목록(답글 묶기, 순서), 수정, 삭제(행은 남고 답글 유지). 로그인 없이 읽기, 로그인 없이 쓰면 401, 남의 댓글 수정·삭제 403, 없는 글 404, 빈 내용·답글의 답글·다른 글이나 삭제된 댓글에 답글·삭제된 댓글 수정 400. 잠긴 댓글을 볼 수 있는 사람과 가려지는 값, 글을 지우면 댓글도 지워짐 |
 | `UserServiceTest` | 회원 연결 | 처음 로그인하면 회원 생성, 같은 `sub`면 같은 회원이고 닉네임 갱신 |
 
 ## 환경 설정
@@ -474,4 +518,5 @@ accounts를 켜지 않아도 됩니다. 로그인한 상태는 `spring-security-
 - [ ] AWS: RDS 연결, S3 이미지 업로드, Elastic Beanstalk 배포
 - [ ] CI/CD: GitHub Actions로 테스트, 빌드, 배포 자동화
 - [x] 별도 프론트엔드(Next.js)로 화면 교체
-- [ ] 태그, 공개 범위, 임시저장, 미리보기, 사진 업로드, 댓글, 예약 게시, 검색 (화면에는 "준비 중"으로 표시)
+- [x] 댓글 (답글, 잠긴 댓글)
+- [ ] 태그, 공개 범위, 임시저장, 미리보기, 사진 업로드, 예약 게시, 검색 (화면에는 "준비 중"으로 표시)

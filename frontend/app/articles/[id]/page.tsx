@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Tx } from "@/components/Bi";
+import Comments from "@/components/Comments";
 import { ArticleLabel, Author } from "@/components/Labels";
 import Markdown from "@/components/Markdown";
 import OwnerActions from "@/components/OwnerActions";
@@ -14,7 +15,7 @@ import { categoryOf } from "@/lib/categories";
 import { formatDate, formatStamp, isEdited, yearOf } from "@/lib/format";
 import { articlesHref } from "@/lib/links";
 import { photoOf } from "@/lib/photos";
-import { fetchArticle, fetchArticles, fetchMe } from "@/lib/server";
+import { fetchArticle, fetchArticles, fetchComments, fetchMe } from "@/lib/server";
 import type { Article } from "@/lib/types";
 import { neighbors } from "@/lib/views";
 
@@ -62,6 +63,7 @@ export default async function ArticlePage({ params }: Props) {
   const { id } = await params;
   const [me, article, articles] = await Promise.all([fetchMe(), fetchArticle(id), fetchArticles()]);
   if (!article) notFound();
+  const comments = await fetchComments(article.id);
 
   const category = categoryOf(article.category);
   const listHref = listHrefOf(article);
@@ -101,6 +103,7 @@ export default async function ArticlePage({ params }: Props) {
             </header>
             {photo && <Photo src={photo} className="pimg" sizes="(max-width: 720px) 100vw, 720px" priority />}
             <Markdown>{article.content}</Markdown>
+            <Comments articleId={article.id} initial={comments} loggedIn={me !== null} />
             <nav className="pn" aria-labelledby="pn-h">
               <span id="pn-h" className="sr-only">
                 <Tx k="prevNext" />

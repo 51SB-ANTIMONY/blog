@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
-import type { Article, Category, Me } from "./types";
+import type { Article, Category, Comment, Me } from "./types";
 
 // 서버에서 화면을 그릴 때 Spring을 직접 부른다. 브라우저의 쿠키(BLOG_SESSION)를 함께 넘겨,
 // 로그인한 사용자라면 그 사람 기준의 응답(editable, /api/me)을 받는다.
@@ -34,4 +34,11 @@ export async function fetchArticle(id: string): Promise<Article | null> {
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`글을 불러오지 못했습니다 (${response.status})`);
   return (await response.json()) as Article;
+}
+
+// 글의 댓글. 로그인한 사용자 기준으로 잠긴 댓글을 가려서 받는다.
+export async function fetchComments(articleId: number): Promise<Comment[]> {
+  const response = await backendFetch(`/api/articles/${articleId}/comments`);
+  if (!response.ok) throw new Error(`댓글을 불러오지 못했습니다 (${response.status})`);
+  return (await response.json()) as Comment[];
 }

@@ -19,6 +19,7 @@ Spring Boot 백엔드와 별도의 프론트엔드로 구성된 개인 블로그
 | 로그인 상태 | accounts에서 돌아오면 blog 세션으로 기억. 토큰은 브라우저에 두지 않음 | 구현 완료 |
 | 글 작성 권한 | 로그인한 사용자만 글 작성, 작성자만 수정·삭제 | 구현 완료 |
 | 로그아웃 | blog 세션과 accounts 로그인을 함께 종료 | 구현 완료 |
+| 댓글 | 글에 댓글과 답글(한 단계). 로그인한 사용자만 작성, 작성자만 수정·삭제. 잠금을 켜면 댓글 작성자, 글 작성자, (답글이면) 부모 댓글 작성자만 볼 수 있음 | 구현 완료 |
 | 이미지 업로드 | 글에 사진을 넣으면 S3에 업로드하고 이미지 주소를 본문에 삽입 | 예정 |
 
 ## 아키텍처
@@ -36,7 +37,7 @@ AWS Elastic Beanstalk ── Spring Boot 애플리케이션
    │                 │
    ▼                 ▼
 Amazon RDS MySQL   Amazon S3 (예정)
-(글, 회원 데이터)   (글에 삽입한 이미지)
+(글, 댓글, 회원 데이터)   (글에 삽입한 이미지)
 
 accounts (OIDC 통합 로그인) ◀── 로그인 요청, 토큰 교환 ── Spring Boot
 GitHub ── push ──▶ GitHub Actions ── 빌드·배포 ──▶ Elastic Beanstalk
@@ -56,7 +57,7 @@ GitHub ── push ──▶ GitHub Actions ── 빌드·배포 ──▶ Elas
 | 폴더 | 내용 |
 |---|---|
 | [`backend/`](./backend) | Spring Boot REST API 서버. API 명세, 인증 흐름, 실행 방법은 [backend/README.md](./backend/README.md) 참고 |
-| [`frontend/`](./frontend) | 블로그 화면 (Next.js). 홈, 글 상세, 글 쓰기·수정. 실행 방법은 [frontend/README.md](./frontend/README.md) 참고 |
+| [`frontend/`](./frontend) | 블로그 화면 (Next.js). 홈, 글 상세, 댓글, 글 쓰기·수정. 실행 방법은 [frontend/README.md](./frontend/README.md) 참고 |
 | [`note/`](./note) | 프로젝트를 만들며 공부한 내용 정리 |
 
 ## 관련 저장소

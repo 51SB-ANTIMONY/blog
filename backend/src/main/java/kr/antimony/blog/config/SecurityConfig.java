@@ -53,6 +53,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/api/csrf").permitAll()
                         // 글 읽기는 누구나. 쓰기, 수정, 삭제는 로그인 필요
                         .requestMatchers(HttpMethod.GET, "/api/articles", "/api/articles/*").permitAll()
+                        // 댓글 보기는 누구나.
+                        .requestMatchers(HttpMethod.GET, "/api/articles/*/comments").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 // 로그인이 필요하면 accounts로 보낸다. (등록된 로그인 제공자가 accounts 하나뿐이라 바로 이동)
