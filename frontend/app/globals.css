@@ -200,9 +200,9 @@ textarea:focus-visible {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: color-mix(in srgb, var(--bg) 60%, transparent);
-  backdrop-filter: saturate(1.8) blur(20px);
-  -webkit-backdrop-filter: saturate(1.8) blur(20px);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  /* -webkit- 접두어는 직접 쓰지 않는다. 같이 쓰면 빌드(CSS 압축) 과정에서 표준 속성이 지워져 Chrome에서 블러가 꺼진다. */
+  backdrop-filter: saturate(1.5) blur(20px);
 }
 .bar {
   height: 64px;
